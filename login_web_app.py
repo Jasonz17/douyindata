@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 # 配置 DrissionPage 用户数据路径
 # 注意：在 Docker 部署时，这个路径已经调整到容器内部的工作目录下了
-user_data_dir = '/app/drissionpage'
+user_data_dir = os.path.join(current_script_dir, 'drissionpage')
 # 确保目录存在，即使 Dockerfile 中有创建，这里也保险一下
 os.makedirs(user_data_dir, exist_ok=True)
 
