@@ -16,6 +16,13 @@ try:
     co = ChromiumOptions()
     co.set_user_data_path(user_data_dir)
 
+    # ****** 关键：明确指定 Chromium 路径 ******
+    # 查找 chromium-browser 的实际路径，通常是 /usr/bin/chromium-browser
+    # DrissionPage 应该能自动找到，但明确指定可以避免歧义
+    # 如果你执行 'which chromium-browser' 得到其他路径，请在这里更新
+    co.set_browser_path('/usr/bin/chromium-browser')
+    # *****************************************
+
     # 核心参数，禁用沙盒和 /dev/shm
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
@@ -36,7 +43,7 @@ try:
 
     # 强制 Chromium 输出更多日志到 stderr
     co.set_argument('--enable-logging=stderr')
-    co.set_argument('--v=2') # 增加详细级别到 2，希望能捕获更多崩溃前的信息
+    co.set_argument('--v=2') # 增加详细级别到 2
 
     # 确保没有 --headless=new，我们就是要真·有头
     # co.set_argument('--headless=new') # 确保此行被注释掉或删除！
@@ -47,7 +54,7 @@ try:
     co.set_argument('--disable-features=NetworkService') # 禁用网络服务（激进，如果好了再考虑）
     co.set_argument('--disable-features=VizDisplayCompositor') # 禁用 Viz 显示合成器
 
-    # ****** 新增一些尝试性参数 ******
+    # 新增一些尝试性参数
     co.set_argument('--no-first-run') # 避免首次运行向导
     co.set_argument('--no-default-browser-check') # 避免检查是否为默认浏览器
     co.set_argument('--disable-background-networking') # 禁用背景网络活动
@@ -62,9 +69,8 @@ try:
     co.set_argument('--disable-translate') # 禁用翻译
     co.set_argument('--disable-setuid-sandbox') # 再次确认禁用
     co.set_argument('--disable-web-security') # 禁用web安全策略（谨慎使用，但测试时可能有用）
-    # ********************************
 
-    print("DEBUG: 尝试创建浏览器实例 (真·有头模式，依赖 Xvfb 完整功能，并安装更多依赖)...", file=sys.stderr)
+    print("DEBUG: 尝试创建浏览器实例 (使用 Chromium Browser，真·有头模式)...", file=sys.stderr)
     # 增加启动超时时间
     browser = ChromiumPage(co, timeout=30)
     print("DEBUG: 浏览器实例创建成功！", file=sys.stderr)
