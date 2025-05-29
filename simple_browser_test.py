@@ -48,7 +48,6 @@ try:
 
     # 额外参数，尝试解决兼容性问题
     # 尽管是有头模式测试，但明确指定为“新无头”模式有时可以绕过一些旧的 Xvfb/GPU 问题
-    co.set_argument('--headless=new')
     co.set_argument('--disable-accelerated-2d-canvas') # 禁用 2D Canvas 加速
     co.set_argument('--disable-webgl') # 禁用 WebGL
     co.set_argument('--disable-features=NetworkService') # 禁用网络服务（激进，如果好了再考虑）
