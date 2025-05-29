@@ -59,15 +59,15 @@ try:
     browser = ChromiumPage(co, timeout=30) # 默认10秒，这里增加到30秒
     print("DEBUG: 浏览器实例创建成功！", file=sys.stderr)
 
-    print("DEBUG: 尝试访问百度...", file=sys.stderr)
-    browser.get('https://www.baidu.com') # 访问百度页面
-    print("DEBUG: 成功访问百度！页面标题:", browser.title, file=sys.stderr)
+    print("DEBUG: 尝试访问抖音...", file=sys.stderr)
+    browser.get('https://v.douyin.com/IAqLrgefUPA/') # 访问百度页面
+    print("DEBUG: 成功访问抖音！页面标题:", browser.title, file=sys.stderr)
 
     # 等待一小段时间，以便截图或观察页面状态
     time.sleep(5)
 
     # 尝试截图保存到项目目录下
-    screenshot_path = os.path.join(current_script_dir, 'baidu_screenshot.png')
+    screenshot_path = os.path.join(current_script_dir, 'douyin_screenshot.png')
     browser.get_screenshot(path=screenshot_path)
     print(f"DEBUG: 截图已保存到: {screenshot_path}", file=sys.stderr)
 
