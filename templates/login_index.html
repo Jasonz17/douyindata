@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音登录辅助</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .container { 
+            background-color: #fff; 
+            padding: 25px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            width: 90%; 
+            max-width: 1200px; /* 之前我们已经改过，保持这个大宽度 */
+            text-align: center; 
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        .status-area, .log-area { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; text-align: left; max-height: 200px; overflow-y: auto; }
+        .log-area { font-size: 0.9em; color: #555; }
+        .screenshot-area { 
+            margin-top: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            overflow: hidden; 
+        }
+        .screenshot-area img { 
+            width: 100%;  /* <--- 核心修改：从 max-width: 100% 改为 width: 100% */
+            height: auto;    
+            display: block;  
+            margin: 0 auto;  
+        }
+        .buttons { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; transition: background-color 0.3s ease; }
+        .button.start { background-color: #28a745; }
+        .button.scan-confirm { background-color: #ffc107; color: #333; }
+        .button.face-scan-confirm { background-color: #17a2b8; }
+        .button:hover { opacity: 0.9; }
+        .button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .input-group { margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .input-group input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 150px; font-size: 1em; }
+        .status-text { font-weight: bold; color: #333; }
+        .status-text.idle { color: #6c757d; }
+        .status-text.processing { color: #007bff; }
+        .status-text.waiting_for_scan { color: #ffc107; }
+        .status-text.waiting_for_face_scan { color: #17a2b8; }
+        .status-text.logged_in { color: #28a745; }
+        .status-text.failed { color: #dc3545; }
+
+        #smsCodeInputGroup {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>抖音登录辅助</h1>
+
+        <div class="status-area">
+            <p>当前状态: <span id="loginStatus" class="status-text idle">闲置</span></p>
+        </div>
+
+        <div class="buttons">
+            <button id="startButton" class="button start" onclick="startLogin()">启动登录流程</button>
+            <button id="confirmScanButton" class="button scan-confirm" onclick="confirmScan()" disabled>我已扫码完成</button>
+            <button id="confirmFaceScanButton" class="button face-scan-confirm" onclick="confirmFaceScan()" disabled>我已刷脸成功</button>
+        </div>
+
+        <div class="log-area" id="logArea">
+            <p>日志:</p>
+        </div>
+
+        <div class="screenshot-area">
+            <img id="screenshotImage" src="" alt="登录截图" style="display: none;">
+        </div>
+    </div>
+
+    <script>
+        let pollingInterval;
+
+        function startLogin() {
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('confirmScanButton').disabled = true;
+            document.getElementById('confirmFaceScanButton').disabled = true;
+            document.getElementById('screenshotImage').style.display = 'none'; 
+            document.getElementById('screenshotImage').src = '';
+            document.getElementById('logArea').innerHTML = '<p>日志:</p>'; 
+            setStatus('processing', '正在启动...');
+
+            fetch('/start_login', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                    if (data.status === 'started') {
+                        pollingInterval = setInterval(getLoginStatus, 2000); 
+                    } else {
+                        setStatus('failed', data.message);
+                        document.getElementById('startButton').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting login:', error);
+                    setStatus('failed', '启动登录流程失败。');
+                    document.getElementById('startButton').disabled = false;
+                });
+        }
+
+        function confirmScan() {
+            document.getElementById('confirmScanButton').disabled = true;
+            setStatus('processing', '正在发送扫码确认...');
+            fetch('/confirm_scan', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                })
+                .catch(error => {
+                    console.error('Error confirming scan:', error);
+                    setStatus('failed', '确认扫码失败。');
+                });
+        }
+
+        function confirmFaceScan() { 
+            document.getElementById('confirmFaceScanButton').disabled = true;
+            setStatus('processing', '正在发送刷脸确认...');
+            fetch('/confirm_face_scan', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                })
+                .catch(error => {
+                    console.error('Error confirming face scan:', error);
+                    setStatus('failed', '确认刷脸失败。');
+                });
+        }
+
+        function setStatus(status, message) {
+            const statusElement = document.getElementById('loginStatus');
+            statusElement.className = 'status-text ' + status;
+            statusElement.innerText = message;
+        }
+
+        function appendLog(message) {
+            const logArea = document.getElementById('logArea');
+            const p = document.createElement('p');
+            p.innerText = message;
+            logArea.appendChild(p);
+            logArea.scrollTop = logArea.scrollHeight; 
+        }
+
+        function getLoginStatus() {
+            fetch('/get_login_status')
+                .then(response => response.json())
+                .then(data => {
+                    setStatus(data.status, data.logs.length > 0 ? data.logs[data.logs.length - 1].split('] ')[1] : data.status); 
+                    data.logs.forEach(log => appendLog(log)); 
+
+                    const screenshotImage = document.getElementById('screenshotImage');
+                    if (data.screenshot) {
+                        screenshotImage.src = 'data:image/png;base64,' + data.screenshot;
+                        screenshotImage.style.display = 'block';
+                    } else {
+                        screenshotImage.src = '';
+                        screenshotImage.style.display = 'none';
+                    }
+
+                    document.getElementById('confirmScanButton').disabled = (data.status !== 'waiting_for_scan');
+                    document.getElementById('confirmFaceScanButton').disabled = (data.status !== 'waiting_for_face_scan');
+
+                    if (data.status === 'logged_in' || data.status === 'failed') {
+                        clearInterval(pollingInterval); 
+                        document.getElementById('startButton').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching login status:', error);
+                    clearInterval(pollingInterval);
+                    setStatus('failed', '获取登录状态失败。');
+                    document.getElementById('startButton').disabled = false;
+                });
+        }
+
+        window.onload = getLoginStatus;
+    </script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音视频解析器</title>
+    <style>
+        /* 全局重置和基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #333; /* 默认字体颜色 */
+        }
+
+        /* 容器样式 */
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
+            -webkit-backdrop-filter: blur(10px); /* Safari 兼容 */
+        }
+
+        /* 标题样式 */
+        .title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        /* 输入组样式 */
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none; /* 移除默认焦点轮廓 */
+        }
+
+        .url-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 单选按钮组样式 */
+        .radio-group {
+            margin-bottom: 1rem;
+            display: flex; /* 让单选按钮横向排列 */
+            gap: 20px; /* 增加间距 */
+        }
+
+        .radio-group label {
+            font-weight: 500;
+            color: #555;
+            cursor: pointer; /* 鼠标悬停显示手型 */
+        }
+
+        .radio-group input[type="radio"] {
+            margin-right: 5px; /* 单选按钮和文字的间距 */
+        }
+
+        /* 按钮样式 */
+        .extract-btn, .download-all-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .extract-btn:hover:not(:disabled), .download-all-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .extract-btn:disabled, .download-all-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .download-all-btn {
+            margin-top: 1rem; /* 与视频列表的间距 */
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%); /* 绿色渐变 */
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
+        }
+        .download-all-btn:hover:not(:disabled) {
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.3);
+        }
+
+
+        /* 加载状态样式 */
+        .loading {
+            display: none; /* 默认隐藏 */
+            text-align: center;
+            margin: 1rem 0;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite; /* 旋转动画 */
+            margin-right: 10px;
+            vertical-align: middle; /* 垂直居中 */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 结果显示区域样式 */
+        .result {
+            display: none; /* 默认隐藏 */
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #28a745; /* 成功状态的左边框颜色 */
+            word-break: break-all; /* 防止长链接溢出 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .result.error {
+            border-left-color: #dc3545; /* 错误状态的左边框颜色 */
+            background: #fff5f5; /* 错误状态的背景色 */
+        }
+
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        /* 单个视频链接样式 */
+        .video-url {
+            color: #0066cc;
+            text-decoration: none;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e1e5e9;
+            display: block;
+            margin-top: 0.5rem;
+            transition: background 0.3s ease;
+        }
+
+        .video-url:hover {
+            background: #f0f8ff;
+        }
+
+        /* 复制按钮样式 */
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 0.5rem; /* 与链接的间距 */
+            margin-left: 10px; /* 与链接的间距 */
+            transition: background 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* 主页视频列表容器样式 */
+        .video-list-container {
+            margin-top: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #fff;
+        }
+
+        .video-list {
+            list-style: none;
+            padding: 0;
+            max-height: 300px; /* 限制高度，使其可滚动 */
+            overflow-y: auto; /* 允许垂直滚动 */
+            padding-right: 5px; /* 防止滚动条遮挡内容 */
+        }
+
+        .video-item {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .video-item:last-child {
+            margin-bottom: 0; /* 最后一个视频项没有底部外边距 */
+        }
+
+        .video-item h4 {
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .video-item p {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+        }
+
+        .video-item p:last-child {
+            margin-bottom: 0;
+        }
+
+        .video-item a {
+            font-size: 0.9rem;
+            color: #0066cc;
+            text-decoration: none;
+            word-break: break-all; /* 防止长链接溢出 */
+            flex-grow: 1; /* 让链接占据剩余空间 */
+        }
+
+        .video-item a:hover {
+            text-decoration: underline;
+        }
+
+        /* 隐藏复制按钮直到需要时显示 */
+        .video-item .copy-btn {
+            margin-left: auto; /* 推到最右边 */
+            flex-shrink: 0; /* 不压缩 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">🎵 抖音视频解析器</h1>
+
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="videoType" value="single" checked> 单个抖音视频
+            </label>
+            <label>
+                <input type="radio" name="videoType" value="profile"> 主页视频
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label for="urlInput" class="input-label" id="inputLabel">请输入抖音视频链接：</label>
+            <input
+                type="text"
+                id="urlInput"
+                class="url-input"
+                placeholder="https://v.douyin.com/..."
+                autocomplete="off"
+            >
+        </div>
+
+        <button id="extractBtn" class="extract-btn">解析视频</button>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            正在解析视频，请稍候...
+        </div>
+
+        <div id="result" class="result">
+            <div class="result-title">解析结果：</div>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const extractBtn = document.getElementById('extractBtn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const radioButtons = document.querySelectorAll('input[name="videoType"]');
+        const inputLabel = document.getElementById('inputLabel');
+
+        let selectedVideoType = 'single'; // 默认选择单个视频
+        let fullProfileData = []; // 用于存储主页视频的完整数据
+
+        // 根据选择的视频类型更新输入框的提示
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                selectedVideoType = event.target.value;
+                if (selectedVideoType === 'single') {
+                    inputLabel.textContent = '请输入抖音视频链接：';
+                    urlInput.placeholder = 'https://v.douyin.com/...';
+                } else {
+                    inputLabel.textContent = '请输入抖音主页链接：';
+                    urlInput.placeholder = 'https://www.douyin.com/user/...';
+                }
+                result.style.display = 'none'; // 切换类型时清空结果
+                urlInput.value = ''; // 切换类型时清空输入框
+                fullProfileData = []; // 清空完整数据
+            });
+        });
+
+        // 监听回车键
+        urlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                extractVideo();
+            }
+        });
+
+        // 监听解析按钮点击
+        extractBtn.addEventListener('click', extractVideo);
+
+        async function extractVideo() {
+            const inputValue = urlInput.value.trim();
+
+            if (!inputValue) {
+                showError('请输入链接');
+                return;
+            }
+
+            // 简单的URL验证，确保包含 douyin.com
+            if (!inputValue.includes('douyin.com')) {
+                showError('请输入有效的抖音链接');
+                return;
+            }
+
+            showLoading(true);
+            result.style.display = 'none'; // 隐藏旧结果
+            fullProfileData = []; // 每次新的请求都清空数据
+
+            let endpoint = '';
+            let paramName = '';
+
+            if (selectedVideoType === 'single') {
+                endpoint = '/get_video_url';
+                paramName = 'url';
+            } else { // selectedVideoType === 'profile'
+                endpoint = '/get_user_videos';
+                paramName = 'pageurl';
+            }
+
+            try {
+                const response = await fetch(`${endpoint}?${paramName}=${encodeURIComponent(inputValue)}`);
+                const data = await response.json();
+
+                showLoading(false);
+
+                if (response.ok) {
+                    if (selectedVideoType === 'single' && data.video_url) {
+                        showSuccess(`
+                            <a href="${data.video_url}" target="_blank" class="video-url">
+                                ${data.video_url}
+                            </a>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.video_url}')">复制链接</button>
+                        `);
+                    } else if (selectedVideoType === 'profile' && data.videos) {
+                        fullProfileData = data.videos; // 保存完整数据
+                        let videoListHtml = `<div>共找到 <strong>${fullProfileData.length}</strong> 个视频。</div>`;
+
+                        if (fullProfileData.length > 0) {
+                            // 限制显示数量，防止页面卡顿
+                            const displayLimit = Math.min(fullProfileData.length, 10); // 只显示前10个
+
+                            videoListHtml += '<div class="video-list-container"><ul class="video-list">';
+                            for (let i = 0; i < displayLimit; i++) {
+                                const video = fullProfileData[i];
+                                // 你可以按需添加更多字段，如 video.video_collect, video.video_share
+                                videoListHtml += `
+                                    <li class="video-item">
+                                        <h4>${video.video_title || '无标题'}</h4>
+                                        <p>ID: ${video.video_id}</p>
+                                        <p>时长: ${formatDuration(video.video_duration)}</p>
+                                        <p>点赞: ${video.video_like}</p>
+                                        <p>收藏: ${video.video_collect}</p>
+                                        <p>分享: ${video.video_share}</p>
+                                        <p><a href="${video.video_url}" target="_blank">查看视频</a></p>
+                                        <p>
+                                            <a href="${video.video_download_url}" target="_blank">下载链接</a>
+                                            <button class="copy-btn" onclick="copyToClipboard('${video.video_download_url}')">复制</button>
+                                        </p>
+                                    </li>
+                                `;
+                            }
+                            videoListHtml += '</ul></div>'; // 关闭视频列表容器
+
+                            if (fullProfileData.length > displayLimit) {
+                                videoListHtml += `<p style="margin-top: 10px;">仅显示前 ${displayLimit} 个视频。所有视频数据已准备好下载。</p>`;
+                            }
+                            videoListHtml += `<button class="download-all-btn" onclick="downloadAllVideoData()">下载所有视频数据 (JSON)</button>`;
+                        } else {
+                            videoListHtml += '<p>未找到任何视频数据。</p>';
+                        }
+                        showSuccess(videoListHtml);
+                    } else {
+                        showError(data.error || '未找到任何视频数据或解析失败');
+                    }
+                } else {
+                    showError(data.error || '服务器请求失败，请检查链接或稍后重试');
+                }
+            } catch (error) {
+                showLoading(false);
+                showError('网络错误，请稍后重试');
+                console.error('Error:', error);
+            }
+        }
+
+        // 显示加载动画
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            extractBtn.disabled = show;
+            extractBtn.textContent = show ? '解析中...' : '解析视频';
+        }
+
+        // 显示成功结果
+        function showSuccess(content) {
+            result.className = 'result'; // 移除可能的错误类
+            result.style.display = 'block';
+            resultContent.innerHTML = content;
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            result.className = 'result error'; // 添加错误类以改变样式
+            result.style.display = 'block';
+            resultContent.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        // 复制到剪贴板功能
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const copyBtn = event.target; // 获取触发事件的按钮
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '已复制！';
+                copyBtn.style.backgroundColor = '#218838'; // 复制成功后变深绿色
+
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.style.backgroundColor = '#28a745'; // 恢复原来的绿色
+                }, 1500); // 1.5秒后恢复
+            }).catch(err => {
+                console.error('复制失败:', err);
+                // 备用方案：如果 navigator.clipboard 不可用 (例如在非 HTTPS 环境或旧浏览器)
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy'); // 尝试执行复制命令
+                document.body.removeChild(textArea);
+
+                const copyBtn = event.target;
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '已复制！(旧方法)';
+                copyBtn.style.backgroundColor = '#218838';
+
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.style.backgroundColor = '#28a745';
+                }, 1500);
+            });
+        }
+
+        // 辅助函数：格式化视频时长 (秒 -> MM:SS)
+        function formatDuration(seconds) {
+            if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
+                return 'N/A';
+            }
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.round(seconds % 60); // 秒数取整
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+            return `${formattedMinutes}:${formattedSeconds}`;
+        }
+
+        // 新增函数：下载所有视频数据
+        function downloadAllVideoData() {
+            if (fullProfileData.length === 0) {
+                alert('没有可下载的视频数据。');
+                return;
+            }
+            // 将完整数据转换为美化过的 JSON 字符串
+            const dataStr = JSON.stringify(fullProfileData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob); // 创建一个临时的 URL 对象
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'douyin_profile_videos.json'; // 设置下载的文件名
+            document.body.appendChild(a);
+            a.click(); // 模拟点击下载
+            document.body.removeChild(a); // 移除元素
+            URL.revokeObjectURL(url); // 释放 URL 对象，防止内存泄漏
+        }
+    </script>
+</body>
+</html>
