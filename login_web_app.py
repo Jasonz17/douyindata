@@ -73,6 +73,8 @@ def run_drissionpage_login_no_socketio():
         # 禁用或阻止可能依赖GPU的实验性功能
         co.set_argument('--disable-features=OnDevicePersonalization')
         co.set_argument('--disable-features=WebRtcHideLocalIpsWithMdns') # 禁用 WebRTC 隐藏本地 IP
+        co.set_argument('--enable-logging=stderr')
+        co.set_argument('--v=1')
 
         update_status_and_log("processing", "【DrissionPage】: 正在创建浏览器实例 (有头模式，依赖 Xvfb)...")
         
