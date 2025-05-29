@@ -53,10 +53,26 @@ def run_drissionpage_login_no_socketio():
     try:
         co = ChromiumOptions()
         co.set_user_data_path(user_data_dir)
-        # 不设置 .headless()，让浏览器以有头模式运行 (通过 Xvfb 提供显示)
+        # 核心参数，禁用沙盒和 /dev/shm
         co.set_argument('--no-sandbox')
         co.set_argument('--disable-dev-shm-usage')
-        co.set_argument('--disable-gpu')
+
+        # 强制禁用所有 GPU 相关的参数，这是解决当前问题的关键
+        co.set_argument('--disable-gpu') # 已经有了，但强调一下
+        co.set_argument('--disable-setuid-sandbox') # 禁用 setuid 沙箱，有时有助于解决权限问题
+        co.set_argument('--disable-seccomp-filter-sandbox') # 禁用 seccomp 过滤器沙箱
+        co.set_argument('--no-zygote') # 在某些系统上启动时可能需要
+        co.set_argument('--single-process') # 强制单进程模式，有时可以避免某些资源问题
+        co.set_argument('--disable-site-isolation-trials') # 禁用网站隔离试验
+        co.set_argument('--disable-speech-api') # 禁用语音 API
+        co.set_argument('--disable-blink-features=AutomationControlled') # 隐藏自动化控制标识
+        co.set_argument('--disable-features=IsolateOrigins,site-per-process') # 禁用网站隔离
+        co.set_argument('--enable-automation') # 禁用自动化标识
+
+        # 额外针对“on_device_model”错误的尝试：
+        # 禁用或阻止可能依赖GPU的实验性功能
+        co.set_argument('--disable-features=OnDevicePersonalization')
+        co.set_argument('--disable-features=WebRtcHideLocalIpsWithMdns') # 禁用 WebRTC 隐藏本地 IP
 
         update_status_and_log("processing", "【DrissionPage】: 正在创建浏览器实例 (有头模式，依赖 Xvfb)...")
         
