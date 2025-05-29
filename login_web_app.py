@@ -67,10 +67,6 @@ def run_drissionpage_login_no_socketio():
             update_status_and_log("error", f"【DrissionPage】: 浏览器连接失败或无法启动: {e}")
             update_status_and_log("error", "【DrissionPage】: 请检查 Chromium 是否正确安装，Xvfb 是否正常工作，以及 Docker 参数是否正确。")
             raise # 重新抛出异常，让外层捕获并打印完整堆栈
-        except ChromiumBrowserError as e:
-            update_status_and_log("error", f"【DrissionPage】: Chromium 浏览器内部错误: {e}")
-            update_status_and_log("error", "【DrissionPage】: 这可能是 Chromium 崩溃或启动问题。请检查 Dockerfile 中的所有依赖。")
-            raise
         except Exception as e:
             update_status_and_log("error", f"【DrissionPage】: 创建浏览器实例时发生未知错误: {e}")
             raise
