@@ -1,227 +1,271 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
+import sys
 import time
-import base64
-import threading
-import queue
-from flask import Flask, render_template, jsonify, request, url_for
-from DrissionPage import ChromiumPage, ChromiumOptions
-# 导入 DrissionPage 中可能抛出的错误类，现在我们知道它们是存在的
-from DrissionPage.errors import PageDisconnectedError, BrowserConnectError, ElementNotFoundError
+import subprocess
+import signal
+from DrissionPage import Chromium, ChromiumOptions
 
-app = Flask(__name__)
+class XvfbManager:
+    """Xvfb虚拟显示器管理器"""
 
-# --- 配置 DrissionPage 用户数据路径 ---
-# 获取当前脚本文件所在的目录
-current_script_dir = os.path.dirname(os.path.abspath(__file__))
-# 定义一个用于保存浏览器用户资料的目录路径
-# 它将会在当前脚本文件的目录下创建一个 'drissionpage' 文件夹
-user_data_dir = os.path.join(current_script_dir, 'drissionpage') # 调整为 'drissionpage'
-# 确保目录存在，如果不存在则创建
-os.makedirs(user_data_dir, exist_ok=True)
+    def __init__(self, display=':99', screen='0', resolution='1920x1080x24'):
+        self.display = display
+        self.screen = screen
+        self.resolution = resolution
+        self.xvfb_process = None
+
+    def start(self):
+        """启动Xvfb虚拟显示器"""
+        try:
+            # 清理可能存在的Xvfb进程
+            self.cleanup()
+
+            print(f"启动Xvfb虚拟显示器: DISPLAY={self.display}")
+
+            # 启动Xvfb，加上了GLX扩展，这可能是之前成功的关键
+            cmd = ['Xvfb', self.display, '-screen', self.screen, self.resolution, '-ac', '+extension', 'GLX']
+            self.xvfb_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE
+            )
+
+            # 设置环境变量
+            os.environ['DISPLAY'] = self.display
+
+            # 等待Xvfb启动
+            time.sleep(3)
+
+            # 检查Xvfb是否正常运行
+            if self.xvfb_process.poll() is None:
+                print(f"✅ Xvfb启动成功，DISPLAY={self.display}")
+                return True
+            else:
+                stderr_output = self.xvfb_process.stderr.read().decode()
+                print(f"❌ Xvfb启动失败: {stderr_output}")
+                return False
+
+        except Exception as e:
+            print(f"❌ 启动Xvfb时出错: {e}")
+            return False
+
+    def stop(self):
+        """停止Xvfb"""
+        if self.xvfb_process and self.xvfb_process.poll() is None:
+            print("停止Xvfb进程...")
+            self.xvfb_process.terminate()
+            try:
+                self.xvfb_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.xvfb_process.kill()
+
+    def cleanup(self):
+        """清理残留的Xvfb进程"""
+        try:
+            subprocess.run(['pkill', '-f', f'Xvfb.*{self.display}'],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+            time.sleep(1)
+        except:
+            pass
+
+def create_chrome_options():
+    """创建Chrome选项配置"""
+    options = ChromiumOptions()
+
+    # 基础选项（保留有助于稳定性和反检测的）
+    options.set_argument('--no-sandbox')
+    options.set_argument('--disable-dev-shm-usage') # 避免共享内存问题
+    options.set_argument('--disable-gpu') # 因为没有物理GPU
+    options.set_argument('--window-size=1920,1080') # 截图所需分辨率
+    options.set_argument('--remote-debugging-port=9222') # 用于DrissionPage连接
+    options.set_argument('--accept-lang','zh-CN,zh;q=0.9,en;q=0.8')
+
+    # 其他一些有助于稳定性的参数
+    options.set_argument('--no-first-run')
+    options.set_argument('--no-default-browser-check')
+    options.set_argument('--disable-default-apps')
+    options.set_argument('--disable-popup-blocking')
+    options.set_argument('--disable-translate')
+    options.set_argument('--disable-background-timer-throttling')
+    options.set_argument('--disable-renderer-backgrounding')
+    options.set_argument('--disable-backgrounding-occluded-windows')
+    options.set_argument('--disable-extensions') # 禁用扩展，减少指纹
+
+    # 伪装User-Agent，保持与Chrome版本一致
+    options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    # 注意：这里的Chrome版本是120.0.0.0，而你的实际是137。
+    # 为了更真实，你可以尝试将 User-Agent 中的版本号改成你的实际Chrome版本，如 137.0.0.0
+    # options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
 
 
-# 全局变量，用于控制登录流程和存储状态
-login_process_queue = queue.Queue()
-browser_instance = None
-current_login_status = "idle"  # "idle", "processing", "success", "failed"
-current_screenshot_base64 = ""
-current_log_messages = []
-current_qr_code_image = None # 用于存储二维码图片数据
+    # 指定Chrome路径（如果需要），确保路径正确
+    chrome_path = '/usr/bin/google-chrome'
+    if os.path.exists(chrome_path):
+        options.set_browser_path(chrome_path)
 
-# --- 辅助函数：更新状态和日志 ---
-def update_status_and_log(status, message):
-    """更新全局状态和日志消息。"""
-    global current_login_status
-    global current_log_messages
+    # ！！！重要：不设置headless()，让Xvfb处理显示！！！
+    # options.headless()
 
-    if status:
-        current_login_status = status
-    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-    log_message = f"[{timestamp}] [{status.upper() if status else 'INFO'}]: {message}"
-    current_log_messages.append(log_message)
-    print(log_message) # 也打印到控制台，方便 nohup 重定向到日志文件查看
+    return options
 
-# --- DrissionPage 登录逻辑 ---
-def run_drissionpage_login_no_socketio():
-    """
-    在单独线程中运行 DrissionPage 登录逻辑。
-    通过全局变量更新状态和截图。
-    """
-    global browser_instance
-    global current_screenshot_base64
-    global current_qr_code_image
-
-    update_status_and_log("processing", "【DrissionPage】: 正在启动登录流程线程...")
-    browser_instance = None # 确保每次启动前都重置
-    current_qr_code_image = None # 每次启动清空二维码数据
+def test_douyin_page():
+    """测试访问抖音页面并截图"""
+    xvfb = None
+    browser = None
+    page = None
 
     try:
-        co = ChromiumOptions()
-        co.set_user_data_path(user_data_dir)
+        print("="*50)
+        print("开始 DrissionPage + Xvfb 访问抖音页面测试")
+        print("="*50)
 
-        # 核心参数：禁用沙盒和 /dev/shm 共享内存，这在 Docker 或服务器环境中非常重要
-        co.set_argument('--no-sandbox')
-        co.set_argument('--disable-dev-shm-usage')
+        # 1. 启动Xvfb
+        xvfb = XvfbManager()
+        if not xvfb.start():
+            print("❌ Xvfb启动失败，退出测试")
+            return False
 
-        # 强制禁用所有 GPU 相关的参数，以避免在无 GPU 环境中启动失败
-        co.set_argument('--disable-gpu')
-        co.set_argument('--disable-setuid-sandbox')
-        co.set_argument('--disable-seccomp-filter-sandbox')
-        co.set_argument('--no-zygote') # 在某些系统上启动时可能需要
-        co.set_argument('--single-process') # 强制单进程模式，有时可以避免某些资源问题
-        co.set_argument('--disable-site-isolation-trials') # 禁用网站隔离试验
-        co.set_argument('--disable-speech-api') # 禁用语音 API
-        co.set_argument('--disable-blink-features=AutomationControlled') # 隐藏自动化控制标识
-        co.set_argument('--disable-features=IsolateOrigins,site-per-process') # 禁用网站隔离
-        co.set_argument('--enable-automation') # 启用自动化标识（通常用于测试框架）
-        co.set_argument('--disable-features=OnDevicePersonalization') # 禁用设备上的个性化功能
-        co.set_argument('--disable-features=WebRtcHideLocalIpsWithMdns') # 禁用 WebRTC 隐藏本地 IP
+        # 2. 创建浏览器实例
+        print("\n🚀 创建浏览器实例...")
+        options = create_chrome_options()
+        browser = Chromium(options)
 
-        # 强制 Chromium 输出更多日志到标准错误流，帮助调试底层问题
-        co.set_argument('--enable-logging=stderr')
-        co.set_argument('--v=1') # 设置详细级别
+        # 获取页面对象
+        page = browser.latest_tab
 
-        # 额外参数，尝试解决兼容性问题
-        co.set_argument('--headless=new') # 明确指定为“新无头”模式
-        co.set_argument('--disable-accelerated-2d-canvas') # 禁用 2D Canvas 加速
-        co.set_argument('--disable-webgl') # 禁用 WebGL
-        co.set_argument('--disable-features=NetworkService') # 禁用网络服务（激进，如果好了再考虑）
-        co.set_argument('--disable-features=VizDisplayCompositor') # 禁用 Viz 显示合成器
-
-
-        update_status_and_log("processing", "【DrissionPage】: 正在创建浏览器实例 (有头模式，依赖 Xvfb)...")
+        print("✅ 浏览器创建成功")
         
-        # 增加启动超时时间，给 Chromium 更多时间启动
-        browser = ChromiumPage(co, timeout=30) # 默认10秒，这里增加到30秒
-        update_status_and_log("processing", "【DrissionPage】: 浏览器实例创建成功。")
+        # --- 新增步骤：检查 Accept-Language 头是否正确发送 ---
+        print("\n🔍 正在检查 Accept-Language 头是否发送正确...")
+        page.get('https://httpbin.org/headers')
+        time.sleep(3) # 等待页面加载，确保所有头信息都已显示
+        
+        headers_content = page.ele('tag:body').text
+        print("--- 浏览器发送的 HTTP 请求头 (来自 httpbin.org) ---")
+        print(headers_content)
+        print("-------------------------------------------------")
 
-        update_status_and_log("processing", "【DrissionPage】: 导航到抖音登录页...")
-        browser.get('https://www.douyin.com/')
-        # 等待页面加载，或者找到登录按钮
-        browser.wait.ele_loaded('xpath=//a[text()="登录"]', timeout=10)
-        browser.ele('xpath=//a[text()="登录"]').click()
-        update_status_and_log("processing", "【DrissionPage】: 点击登录按钮，等待登录框出现...")
+        # 3. 访问抖音页面
+        douyin_url = 'https://v.douyin.com/IAqLrgefUPA/'
+        print(f"\n🌐 访问抖音页面: {douyin_url} ...")
+        page.get(douyin_url)
 
-        # 等待二维码出现
-        try:
-            browser.wait.ele_loaded('xpath=//img[@alt="扫码登录"]', timeout=15)
-            qr_code_ele = browser.ele('xpath=//img[@alt="扫码登录"]')
-            update_status_and_log("processing", "【DrissionPage】: 找到二维码元素，尝试获取截图...")
-            
-            # 直接获取二维码图片数据
-            qr_code_data = qr_code_ele.ele_attr('src')
-            if qr_code_data.startswith('data:image/png;base64,'):
-                qr_code_data = qr_code_data.replace('data:image/png;base64,', '')
-            
-            current_qr_code_image = qr_code_data
-            update_status_and_log("processing", "【DrissionPage】: 二维码数据已获取，等待扫码...")
+        # 等待页面加载，抖音页面内容动态较多，需要较长等待
+        print("⏳ 等待页面内容加载... (建议等待10-15秒或更长)")
+        time.sleep(15) # 增加等待时间，确保动态内容加载完成
 
-        except ElementNotFoundError:
-            update_status_and_log("error", "【DrissionPage】: 登录二维码未在指定时间内找到。")
-            current_login_status = "failed"
-            return
-        except Exception as e:
-            update_status_and_log("error", f"【DrissionPage】: 获取二维码时发生错误: {e}")
-            current_login_status = "failed"
-            return
+        # 4. 检查页面是否成功加载抖音内容
+        title = page.title
+        current_url = page.url
+        print(f"📄 页面标题: {title}")
+        print(f"🔗 当前URL: {current_url}")
 
+        # 检查是否成功加载，抖音页面标题通常包含“抖音”或重定向后的信息
+        if '抖音' in title or 'douyin' in title.lower() or 'aweme' in current_url.lower():
+            print("✅ 成功访问抖音页面！")
 
-        # 检查登录状态的循环，例如通过判断特定元素的存在
-        max_attempts = 60 # 尝试检查60次，每次1秒，总共等待1分钟
-        for i in range(max_attempts):
-            time.sleep(1)
-            # 假设登录成功后页面会重定向，并且某个元素会消失或出现
-            # 这里简单判断URL是否不再是登录页面
-            if "login" not in browser.url and "passport" not in browser.url:
-                update_status_and_log("success", "【DrissionPage】: 检测到页面跳转，可能已登录成功！")
-                break
-            
-            update_status_and_log("processing", f"【DrissionPage】: 等待扫码... ({i+1}/{max_attempts}秒)")
-            
+            # 5. 截图并保存
+            screenshot_path = './douyin_screenshot.png'
+            print(f"\n📸 正在截图并保存到: {screenshot_path}")
+            try:
+                page.get_screenshot(path=screenshot_path)
+                print("✅ 截图成功！")
+                return True
+            except Exception as e:
+                print(f"❌ 截图失败: {e}")
+                return False
         else:
-            update_status_and_log("failed", "【DrissionPage】: 扫码超时，未检测到登录成功。")
-            current_login_status = "failed"
-            return
-        
-        # 登录成功后的截图
-        update_status_and_log("processing", "【DrissionPage】: 登录成功，正在截取最终页面截图...")
-        try:
-            screenshot_bytes = browser.get_screenshot()
-            current_screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-            update_status_and_log("success", "【DrissionPage】: 登录成功，截图已获取。")
-            current_login_status = "success"
-        except PageDisconnectedError:
-            update_status_and_log("error", "【DrissionPage】: 获取截图时页面已断开连接。")
-            current_login_status = "failed"
-        except Exception as e:
-            update_status_and_log("error", f"【DrissionPage】: 获取截图时发生未知错误: {e}")
-            current_login_status = "failed"
+            print(f"❌ 页面标题或URL异常，可能未成功加载抖音内容。")
+            return False
 
-    except PageDisconnectedError as e: # 精确捕获 PageDisconnectedError
-        update_status_and_log("error", f"【DrissionPage】: PageDisconnectedError - 页面连接已断开: {e}")
+    except Exception as e:
+        print(f"❌ 测试过程中出错: {e}")
         import traceback
-        update_status_and_log("error", traceback.format_exc())
-        current_login_status = "failed"
-    except BrowserConnectError as e: # 精确捕获 BrowserConnectError
-        update_status_and_log("error", f"【DrissionPage】: BrowserConnectError - 浏览器连接失败或无法启动: {e}")
-        update_status_and_log("error", "【DrissionPage】: 请检查 Chromium 是否正确安装，Xvfb 是否正常工作，以及服务器依赖是否正确。")
-        import traceback
-        update_status_and_log("error", traceback.format_exc())
-        current_login_status = "failed"
-    except Exception as e: # 捕获其他所有未预料的错误
-        update_status_and_log("error", f"【DrissionPage】: 浏览器操作过程中发生其他异常: {e}")
-        import traceback
-        update_status_and_log("error", traceback.format_exc())
-        current_login_status = "failed"
+        traceback.print_exc()
+        return False
+
     finally:
+        # 清理资源
+        print("\n🧹 清理资源...")
         if browser:
-            update_status_and_log("info", "【DrissionPage】: 正在关闭浏览器...")
             try:
                 browser.quit()
-                update_status_and_log("info", "【DrissionPage】: 浏览器已关闭。")
-            except Exception as e:
-                update_status_and_log("error", f"【DrissionPage】: 关闭浏览器时发生错误: {e}")
-                import traceback
-                update_status_and_log("error", traceback.format_exc())
+                print("✅ 浏览器已关闭")
+            except:
+                pass
 
+        if xvfb:
+            xvfb.stop()
+            print("✅ Xvfb已停止")
 
-# --- Flask 路由 ---
-@app.route('/')
-def index():
-    return render_template('login_index.html') # 确保你有这个 HTML 模板文件
+        print("测试完成!")
 
-@app.route('/start_login', methods=['POST'])
-def start_login():
-    """触发 DrissionPage 登录流程。"""
-    global current_login_status
-    if current_login_status != "processing":
-        update_status_and_log("idle", "用户请求启动登录流程...")
-        # 清空之前的状态和截图
-        global current_screenshot_base64, current_log_messages, current_qr_code_image
-        current_screenshot_base64 = ""
-        current_log_messages = []
-        current_qr_code_image = None
+def check_environment():
+    """检查运行环境"""
+    print("🔍 检查运行环境...")
 
-        # 在新线程中运行 DrissionPage 登录逻辑，避免阻塞 Flask 主线程
-        threading.Thread(target=run_drissionpage_login_no_socketio).start()
-        return jsonify({"message": "登录流程已启动，请等待...", "status": "processing"})
+    # 检查Python版本
+    python_version = sys.version
+    print(f"Python版本: {python_version}")
+
+    # 检查必要的命令
+    commands = ['google-chrome', 'Xvfb']
+    for cmd in commands:
+        try:
+            result = subprocess.run(['which', cmd], capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ {cmd}: {result.stdout.strip()}")
+            else:
+                print(f"❌ {cmd}: 未找到")
+        except:
+            print(f"❌ {cmd}: 检查失败")
+
+    # 检查Chrome版本
+    try:
+        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ Chrome版本: {result.stdout.strip()}")
+        else:
+            print(f"❌ Chrome版本检查失败")
+    except:
+        print(f"❌ Chrome版本检查异常")
+
+    # 检查DrissionPage
+    try:
+        from DrissionPage import Chromium, ChromiumOptions
+        import DrissionPage
+        print(f"✅ DrissionPage版本: {DrissionPage.__version__}")
+    except ImportError:
+        print("❌ DrissionPage未安装")
+    except:
+        print("✅ DrissionPage已安装")
+
+    print("-" * 50)
+
+if __name__ == "__main__":
+    # 设置信号处理，确保能够正常退出
+    def signal_handler(signum, frame):
+        print("\n收到退出信号，正在清理...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # 检查环境
+    check_environment()
+
+    # 运行主测试
+    print("\n" + "="*50)
+    print("运行抖音页面测试")
+    success = test_douyin_page()
+
+    if success:
+        print("\n🎉 抖音页面测试成功！截图已保存到 douyin_screenshot.png。")
+        sys.exit(0)
     else:
-        return jsonify({"message": "登录流程正在进行中，请勿重复操作。", "status": "processing"}), 409
-
-@app.route('/login_status', methods=['GET'])
-def get_login_status():
-    """获取当前登录状态、日志和截图。"""
-    return jsonify({
-        "status": current_login_status,
-        "screenshot": current_screenshot_base64,
-        "logs": current_log_messages,
-        "qr_code_image": current_qr_code_image # 返回二维码图片数据
-    })
-
-# --- Flask 应用启动 ---
-if __name__ == '__main__':
-    print("------------------------------------------")
-    print(f"Flask Web 服务将在 http://0.0.0.0:3030 启动")
-    print(f"浏览器用户资料路径: {user_data_dir}")
-    print("------------------------------------------")
-    app.run(host='0.0.0.0', port=3030, debug=True, threaded=True) # 确保绑定到 0.0.0.0 和 3030 端口
+        print("\n❌ 抖音页面测试失败，请检查错误信息。")
+        sys.exit(1)
