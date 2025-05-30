@@ -168,16 +168,76 @@ def test_douyin_page():
         if '抖音' in title or 'douyin' in title.lower() or 'aweme' in current_url.lower():
             print("✅ 成功访问抖音页面！")
 
-            # 5. 截图并保存
-            screenshot_path = './douyin_screenshot.png'
-            print(f"\n📸 正在截图并保存到: {screenshot_path}")
+            # --- 开始登录流程 ---
+            print("\n--- 开始抖音登录流程 ---")
+
+            # 1. 定位手机号国家组件并输入86
+            print("尝试定位手机号国家组件并输入86...")
+            country_code_input = page.ele('xpath://input[@name="web-login-area-code-input"]')
+            if country_code_input:
+                country_code_input.input('86')
+                print("国家/地区已输入86。")
+            else:
+                print("❌ 未找到国家/地区输入框，请检查页面结构。")
+                return False
+
+            # 2. 定位手机号输入框并输入手机号
+            print("尝试定位手机号输入框...")
+            phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
+            if phone_input:
+                phone_number = input("请在控制台输入您的手机号并按回车: ")
+                phone_input.input(phone_number)
+                print("手机号已输入。")
+            else:
+                print("❌ 未找到手机号输入框，请检查页面结构或等待元素加载。")
+                return False
+
+            # 3. 定位获取验证码按钮并点击，然后等待用户输入验证码
+            print("尝试定位发送验证码按钮...")
+            send_code_button = page.ele('xpath://span[text()="获取验证码"]')
+            if send_code_button:
+                send_code_button.click()
+                print("已点击获取验证码。")
+                time.sleep(1) # 给页面短暂的反应时间
+            else:
+                print("❌ 未找到获取验证码按钮，请检查页面结构。")
+                return False
+
+            # 4. 定位验证码输入框并输入验证码
+            print("尝试定位验证码输入框 (使用 placeholder)...")
+            code_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
+            if not code_input:
+                print("❌ 验证码输入框仍然无法被DrissionPage定位到，请检查页面结构。")
+                return False
+
+            print("验证码输入框已定位到！")
+            verification_code = input("请在控制台输入您收到的验证码并按回车: ")
+            code_input.input(verification_code)
+            print("验证码已输入。")
+
+            # 5. 定位登录/注册按钮并点击
+            print("尝试定位登录/注册按钮...")
+            login_register_button = page.ele('xpath://div[text()="登录/注册"]')
+            if login_register_button:
+                login_register_button.click()
+                print("已点击登录/注册。等待页面跳转或登录成功...")
+                time.sleep(10) # 简单等待，根据实际情况可能需要更长时间
+                print("登录流程可能已完成。请检查浏览器界面是否登录成功。")
+            else:
+                print("❌ 未找到登录/注册按钮，请检查页面结构。")
+                return False
+            
+            # 登录成功后截图
+            login_screenshot_path = './login_screenshot.png'
+            print(f"\n📸 正在截图并保存登录状态到: {login_screenshot_path}")
             try:
-                page.get_screenshot(path=screenshot_path)
-                print("✅ 截图成功！")
+                page.get_screenshot(path=login_screenshot_path)
+                print("✅ 登录状态截图成功！")
                 return True
             except Exception as e:
-                print(f"❌ 截图失败: {e}")
+                print(f"❌ 登录状态截图失败: {e}")
                 return False
+
         else:
             print(f"❌ 页面标题或URL异常，可能未成功加载抖音内容。")
             return False
@@ -264,7 +324,7 @@ if __name__ == "__main__":
     success = test_douyin_page()
 
     if success:
-        print("\n🎉 抖音页面测试成功！截图已保存到 douyin_screenshot.png。")
+        print("\n🎉 抖音页面测试成功！截图已保存到 login_screenshot.png。")
         sys.exit(0)
     else:
         print("\n❌ 抖音页面测试失败，请检查错误信息。")
