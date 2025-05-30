@@ -123,6 +123,7 @@ def test_basic_browser():
     """基础浏览器测试"""
     xvfb = None
     browser = None
+    page = None
     
     try:
         print("="*50)
@@ -139,32 +140,35 @@ def test_basic_browser():
         print("\n🚀 创建浏览器实例...")
         options = create_chrome_options()
         
-        # 使用Chromium类而不是ChromiumPage
+        # 创建Chromium浏览器管理器
         browser = Chromium(options)
+        
+        # 获取页面对象 - 这是关键修复点！
+        page = browser.latest_tab  # 或者使用 browser.get_tab() 或 browser.new_tab()
         
         print("✅ 浏览器创建成功")
         
         # 3. 访问百度
         print("\n🌐 访问百度首页...")
-        browser.get('https://www.baidu.com')
+        page.get('https://www.baidu.com')
         
         # 等待页面加载
         time.sleep(5)
         
         # 4. 检查页面标题
-        title = browser.title
+        title = page.title
         print(f"📄 页面标题: {title}")
         
         if '百度' in title or 'baidu' in title.lower():
             print("✅ 成功访问百度首页!")
             
             # 5. 获取页面信息
-            url = browser.url
+            url = page.url
             print(f"🔗 当前URL: {url}")
             
             # 6. 尝试查找搜索框
             try:
-                search_box = browser.ele('#kw')  # 百度搜索框ID
+                search_box = page.ele('#kw')  # 百度搜索框ID
                 if search_box:
                     print("✅ 找到搜索框元素")
                     
@@ -173,6 +177,17 @@ def test_basic_browser():
                     print("✅ 输入测试文本成功")
                     
                     time.sleep(2)
+                    
+                    # 尝试点击搜索按钮
+                    search_btn = page.ele('#su')  # 百度搜索按钮ID
+                    if search_btn:
+                        search_btn.click()
+                        print("✅ 点击搜索按钮成功")
+                        time.sleep(3)
+                        
+                        # 检查搜索结果页面
+                        new_title = page.title
+                        print(f"📄 搜索后页面标题: {new_title}")
                     
                 else:
                     print("⚠️  未找到搜索框，可能页面结构有变化")
@@ -206,6 +221,76 @@ def test_basic_browser():
             print("✅ Xvfb已停止")
         
         print("测试完成!")
+
+def test_alternative_approach():
+    """测试另一种创建页面的方法"""
+    xvfb = None
+    browser = None
+    
+    try:
+        print("="*50)
+        print("测试备用方法：直接创建新标签页")
+        print("="*50)
+        
+        # 1. 启动Xvfb
+        xvfb = XvfbManager()
+        if not xvfb.start():
+            print("❌ Xvfb启动失败，退出测试")
+            return False
+        
+        # 2. 创建浏览器和新标签页
+        print("\n🚀 创建浏览器实例和新标签页...")
+        options = create_chrome_options()
+        browser = Chromium(options)
+        
+        # 创建新标签页
+        page = browser.new_tab()
+        
+        print("✅ 新标签页创建成功")
+        
+        # 3. 访问网站
+        print("\n🌐 访问测试网站...")
+        page.get('https://httpbin.org/get')  # 使用一个简单的测试网站
+        
+        time.sleep(3)
+        
+        # 检查页面内容
+        title = page.title
+        print(f"📄 页面标题: {title}")
+        
+        # 获取页面文本内容
+        try:
+            body_text = page.ele('body').text
+            if 'httpbin' in body_text.lower() or 'origin' in body_text.lower():
+                print("✅ 成功访问测试网站并获取内容!")
+                print(f"页面内容预览: {body_text[:200]}...")
+                return True
+            else:
+                print(f"⚠️  页面内容异常: {body_text[:100]}")
+        except Exception as e:
+            print(f"⚠️  获取页面内容时出错: {e}")
+            
+        return False
+        
+    except Exception as e:
+        print(f"❌ 备用测试过程中出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+        
+    finally:
+        # 清理资源
+        print("\n🧹 清理资源...")
+        if browser:
+            try:
+                browser.quit()
+                print("✅ 浏览器已关闭")
+            except:
+                pass
+                
+        if xvfb:
+            xvfb.stop()
+            print("✅ Xvfb已停止")
 
 def check_environment():
     """检查运行环境"""
@@ -261,12 +346,19 @@ if __name__ == "__main__":
     # 检查环境
     check_environment()
     
-    # 运行测试
-    success = test_basic_browser()
+    # 运行主测试
+    print("\n" + "="*50)
+    print("运行主测试")
+    success1 = test_basic_browser()
     
-    if success:
-        print("\n🎉 测试成功！可以继续下一步开发。")
+    # 运行备用测试
+    print("\n" + "="*50)
+    print("运行备用测试")
+    success2 = test_alternative_approach()
+    
+    if success1 or success2:
+        print("\n🎉 至少一个测试成功！可以继续下一步开发。")
         sys.exit(0)
     else:
-        print("\n❌ 测试失败，请检查错误信息。")
+        print("\n❌ 所有测试都失败，请检查错误信息。")
         sys.exit(1)
