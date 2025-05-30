@@ -77,24 +77,24 @@ def create_chrome_options():
     options = ChromiumOptions()
     
     # 基础选项
-    options.set_argument('--no-sandbox')
-    options.set_argument('--disable-dev-shm-usage')
-    options.set_argument('--disable-gpu')
-    options.set_argument('--disable-web-security')
-    options.set_argument('--disable-features=VizDisplayCompositor')
-    options.set_argument('--disable-extensions')
-    options.set_argument('--disable-plugins')
-    options.set_argument('--disable-images')  # 加速加载
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--disable-web-security')
+    options.add_argument('--disable-features=VizDisplayCompositor')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-plugins')
+    options.add_argument('--disable-images')  # 加速加载
     
     # 内存优化
-    options.set_argument('--memory-pressure-off')
-    options.set_argument('--max_old_space_size=4096')
+    options.add_argument('--memory-pressure-off')
+    options.add_argument('--max_old_space_size=4096')
     
     # 用户代理
     options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     # 窗口大小
-    options.set_argument('--window-size=1920,1080')
+    options.add_argument('--window-size=1920,1080')
     
     # 指定Chrome路径（如果需要）
     chrome_path = '/usr/bin/google-chrome'
@@ -122,7 +122,20 @@ def test_basic_browser():
         # 2. 创建浏览器实例
         print("\n🚀 创建浏览器实例...")
         options = create_chrome_options()
-        browser = ChromiumPage(addr_driver_opts=options)
+        
+        # 尝试不同的参数名称以兼容不同版本
+        try:
+            browser = ChromiumPage(addr_or_opts=options)
+        except TypeError:
+            try:
+                browser = ChromiumPage(driver_or_options=options)
+            except TypeError:
+                try:
+                    browser = ChromiumPage(options=options)
+                except TypeError:
+                    # 最后尝试直接传递
+                    browser = ChromiumPage()
+                    print("⚠️  使用默认配置创建浏览器")
         
         print("✅ 浏览器创建成功")
         
