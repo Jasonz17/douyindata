@@ -113,7 +113,7 @@ def create_chrome_options():
     return options
 
 def test_douyin_page():
-    """测试访问抖音页面并截图"""
+    """测试访问抖音页面并执行登录流程"""
     xvfb = None
     browser = None
     page = None
@@ -139,7 +139,7 @@ def test_douyin_page():
 
         print("✅ 浏览器创建成功")
         
-        # --- 新增步骤：检查 Accept-Language 头是否正确发送 ---
+        # --- 检查 Accept-Language 头是否正确发送 ---
         print("\n🔍 正在检查 Accept-Language 头是否发送正确...")
         page.get('https://httpbin.org/headers')
         time.sleep(3) # 等待页面加载，确保所有头信息都已显示
@@ -150,13 +150,13 @@ def test_douyin_page():
         print("-------------------------------------------------")
 
         # 3. 访问抖音页面
-        # 按照您的要求，保持原始URL，因为它会自动弹出登录框
-        douyin_url = 'https://www.douyin.com/?vid=7497916567561309466&recommend=1' # 使用您提供的原始URL
+        # 按照您的要求，使用此URL，因为它会自动弹出登录框
+        douyin_url = 'https://www.douyin.com/?vid=7497916567561309466&recommend=1' 
         print(f"\n🌐 访问抖音页面: {douyin_url} ...")
         page.get(douyin_url)
 
         # 等待页面加载，抖音页面内容动态较多，需要较长等待
-        print("⏳ 等待页面内容加载... (建议等待10-15秒或更长)")
+        print("⏳ 等待页面内容加载... (建议等待10-15秒或更长，等待登录框弹出)")
         time.sleep(15) # 增加等待时间，确保动态内容加载完成，包括登录框的弹出
 
         # 4. 检查页面是否成功加载抖音内容
@@ -165,72 +165,97 @@ def test_douyin_page():
         print(f"📄 页面标题: {title}")
         print(f"🔗 当前URL: {current_url}")
 
-        # 检查是否成功加载，抖音页面标题通常包含“抖音”或重定向后的信息
         if '抖音' in title or 'douyin' in title.lower() or 'aweme' in current_url.lower():
             print("✅ 成功访问抖音页面！")
 
-            # 在这里，根据您的测试，登录框应该已经自动弹出了
+            # 在这里，直接开始执行登录流程，因为您已确认登录框会自动弹出
             print("\n--- 开始抖音登录流程 ---")
 
-            # 1. 定位手机号国家的组件并输入86
+            # 1. 定位手机号国家组件并输入86
             print("尝试定位手机号国家组件并输入86...")
-            # 找到您指定的输入框：<input size="2" class="B7N1ZHMr" autocomplete="off" role="combobox" tabindex="0" aria-owns="select-ul" aria-activedescendant="areacode_item_0" aria-label="国家/地区" maxlength="5" type="text" value="+1" name="web-login-area-code-input">
+            # 您提供的input元素：<input size="2" class="B7N1ZHMr" autocomplete="off" role="combobox" tabindex="0" aria-owns="select-ul" aria-activedescendant="areacode_item_0" aria-label="国家/地区" maxlength="5" type="text" value="+1" name="web-login-area-code-input">
             country_code_input = page.ele('xpath://input[@name="web-login-area-code-input"]')
+            
+            # 使用DrissionPage的等待机制，等待元素出现，增加稳定性
+            if not country_code_input:
+                print("⚠️ 国家/地区输入框未立即找到，尝试等待...")
+                country_code_input = page.wait.ele_appear('xpath://input[@name="web-login-area-code-input"]', timeout=10) # 最多等待10秒
+
             if country_code_input:
                 country_code_input.input('86')
                 print("国家/地区已输入86。")
                 time.sleep(1) # 短暂等待
             else:
-                print("❌ 未找到国家/地区输入框，请检查页面结构。")
+                print("❌ 未找到国家/地区输入框，无法进行下一步。")
                 return False
 
-            # 2. 用xpath定位手机号输入框，并在终端输入手机号填写进去
+            # 2. 用xpath定位ele('xpath://*[@placeholder="请输入手机号"]')
+            # 然后在终端让我输入手机号，并把我输入的手机号填写进去
             print("尝试定位手机号输入框...")
             phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
+            
+            if not phone_input:
+                print("⚠️ 手机号输入框未立即找到，尝试等待...")
+                phone_input = page.wait.ele_appear('xpath://*[@placeholder="请输入手机号"]', timeout=10) # 最多等待10秒
+
             if phone_input:
                 phone_number = input("请在控制台输入您的手机号并按回车: ")
                 phone_input.input(phone_number)
                 print("手机号已输入。")
                 time.sleep(1) # 短暂等待
             else:
-                print("❌ 未找到手机号输入框，请检查页面结构或等待元素加载。")
+                print("❌ 未找到手机号输入框，无法进行下一步。")
                 return False
 
             # 3. 输入后 定位.ele('xpath://span[text()="获取验证码"]') 按下按钮后 终端等待我输入验证码
             print("尝试定位发送验证码按钮...")
             send_code_button = page.ele('xpath://span[text()="获取验证码"]')
+            
+            if not send_code_button:
+                print("⚠️ 获取验证码按钮未立即找到，尝试等待...")
+                send_code_button = page.wait.ele_appear('xpath://span[text()="获取验证码"]', timeout=10) # 最多等待10秒
+
             if send_code_button:
                 send_code_button.click()
                 print("已点击获取验证码。")
                 time.sleep(3) # 给页面短暂的反应时间，等待验证码发送
             else:
-                print("❌ 未找到获取验证码按钮，请检查页面结构。")
+                print("❌ 未找到获取验证码按钮，无法进行下一步。")
                 return False
 
-            # 4. 定位ele('xpath://*[@placeholder="请输入验证码"]') 把我的验证码输入进去
+            # 4. 定位ele('xpath://*[@placeholder="请输入验证码"]')  把我的验证码输入进去
             print("尝试定位验证码输入框 (使用 placeholder)...")
             code_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
-
+            
             if not code_input:
-                print("❌ 验证码输入框仍然无法被DrissionPage定位到，请检查页面结构。")
-                return False
+                print("⚠️ 验证码输入框未立即找到，尝试等待...")
+                code_input = page.wait.ele_appear('xpath://*[@placeholder="请输入验证码"]', timeout=10) # 最多等待10秒
 
-            print("验证码输入框已定位到！")
-            verification_code = input("请在控制台输入您收到的验证码并按回车: ")
-            code_input.input(verification_code)
-            print("验证码已输入。")
-            time.sleep(1) # 短暂等待
+            if code_input:
+                print("验证码输入框已定位到！")
+                verification_code = input("请在控制台输入您收到的验证码并按回车: ")
+                code_input.input(verification_code)
+                print("验证码已输入。")
+                time.sleep(1) # 短暂等待
+            else:
+                print("❌ 验证码输入框仍然无法被DrissionPage定位到，无法进行下一步。")
+                return False
 
             # 5. 最后定位ele('xpath://div[text()="登录/注册"]') 并点击
             print("尝试定位登录/注册按钮...")
             login_register_button = page.ele('xpath://div[text()="登录/注册"]')
+            
+            if not login_register_button:
+                print("⚠️ 登录/注册按钮未立即找到，尝试等待...")
+                login_register_button = page.wait.ele_appear('xpath://div[text()="登录/注册"]', timeout=10) # 最多等待10秒
+
             if login_register_button:
                 login_register_button.click()
                 print("已点击登录/注册。等待页面跳转或登录成功...")
                 time.sleep(10) # 增加等待时间，确保登录成功并页面跳转
                 print("登录流程可能已完成。请检查浏览器界面是否登录成功。")
             else:
-                print("❌ 未找到登录/注册按钮，请检查页面结构。")
+                print("❌ 未找到登录/注册按钮，无法进行下一步。")
                 return False
             
             # 登录成功后截图
