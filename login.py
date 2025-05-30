@@ -181,23 +181,86 @@ def test_douyin_page():
             # 6. 开始登录流程
             print("\n🔐 开始登录流程...")
             
+            # 先等待一下，确保登录框完全加载
+            print("⏳ 等待登录框加载...")
+            time.sleep(5)
+            
+            # 打印当前页面标题和URL，确认我们在正确的页面
+            print(f"当前页面标题: {page.title}")
+            print(f"当前页面URL: {page.url}")
+            
+            # 尝试查找登录框元素
+            print("🔍 尝试查找登录框元素...")
+            
             # 定位并设置国家代码
-            country_code_input = page.ele('css:.B7N1ZHMr')
-            if country_code_input:
-                country_code_input.input('86')
-                print("✅ 已设置国家代码为+86")
-            else:
-                print("❌ 未找到国家代码输入框")
+            try:
+                country_code_input = page.ele('css:.B7N1ZHMr')
+                print(f"国家代码输入框查找结果: {'找到' if country_code_input else '未找到'}")
+                if country_code_input:
+                    country_code_input.input('86')
+                    print("✅ 已设置国家代码为+86")
+                else:
+                    print("❌ 未找到国家代码输入框")
+                    # 尝试截图记录当前页面状态
+                    debug_screenshot_path = './debug_screenshot.png'
+                    page.get_screenshot(path=debug_screenshot_path)
+                    print(f"已保存调试截图到 {debug_screenshot_path}")
+                    return False
+            except Exception as e:
+                print(f"❌ 设置国家代码时出错: {e}")
+                # 尝试截图记录当前页面状态
+                debug_screenshot_path = './debug_screenshot.png'
+                page.get_screenshot(path=debug_screenshot_path)
+                print(f"已保存调试截图到 {debug_screenshot_path}")
                 return False
 
             # 获取用户手机号
-            phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
-            if phone_input:
-                phone_number = input("请输入手机号: ")
-                phone_input.input(phone_number)
-                print("✅ 已输入手机号")
-            else:
-                print("❌ 未找到手机号输入框")
+            try:
+                print("🔍 尝试查找手机号输入框...")
+                phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
+                print(f"手机号输入框查找结果: {'找到' if phone_input else '未找到'}")
+                
+                if phone_input:
+                    # 尝试其他定位方式，以防万一
+                    print("尝试其他定位方式查找手机号输入框...")
+                    try:
+                        # 尝试通过CSS选择器定位
+                        alt_phone_input = page.ele('css:input[placeholder="请输入手机号"]')
+                        print(f"通过CSS选择器查找手机号输入框: {'找到' if alt_phone_input else '未找到'}")
+                    except:
+                        pass
+                    
+                    phone_number = input("请输入手机号: ")
+                    phone_input.input(phone_number)
+                    print("✅ 已输入手机号")
+                else:
+                    print("❌ 未找到手机号输入框")
+                    # 尝试截图记录当前页面状态
+                    debug_screenshot_path = './debug_phone_input.png'
+                    page.get_screenshot(path=debug_screenshot_path)
+                    print(f"已保存调试截图到 {debug_screenshot_path}")
+                    
+                    # 尝试获取页面源码，看看有什么元素
+                    print("尝试分析页面元素...")
+                    try:
+                        # 查找所有输入框
+                        inputs = page.eles('tag:input')
+                        print(f"页面上找到 {len(inputs)} 个输入框元素")
+                        for i, inp in enumerate(inputs[:5]):  # 只显示前5个
+                            try:
+                                placeholder = inp.attr('placeholder')
+                                print(f"输入框 {i+1}: placeholder='{placeholder}'")
+                            except:
+                                print(f"输入框 {i+1}: 无法获取placeholder")
+                    except Exception as e:
+                        print(f"分析页面元素时出错: {e}")
+                    
+                    return False
+            except Exception as e:
+                print(f"❌ 查找手机号输入框时出错: {e}")
+                debug_screenshot_path = './debug_phone_error.png'
+                page.get_screenshot(path=debug_screenshot_path)
+                print(f"已保存调试截图到 {debug_screenshot_path}")
                 return False
 
             # 点击获取验证码
@@ -326,7 +389,7 @@ if __name__ == "__main__":
     success = test_douyin_page()
 
     if success:
-        print("\n🎉 抖音页面测试成功！截图已保存到 douyin_screenshot.png。")
+        print("\n🎉 抖音页面测试成功！登录截图已保存到 login_screenshot.png。")
         sys.exit(0)
     else:
         print("\n❌ 抖音页面测试失败，请检查错误信息。")
