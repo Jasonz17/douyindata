@@ -94,16 +94,12 @@ def create_chrome_options():
     options.set_argument('--disable-renderer-backgrounding')
     options.set_argument('--disable-backgrounding-occluded-windows')
     options.set_argument('--disable-extensions') # 禁用扩展，减少指纹
-
+    options.set.header('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8')
     # 伪装User-Agent，保持与Chrome版本一致
     options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     # 注意：这里的Chrome版本是120.0.0.0，而你的实际是137。
     # 为了更真实，你可以尝试将 User-Agent 中的版本号改成你的实际Chrome版本，如 137.0.0.0
     # options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
-    options.set_user_prefs({
-        'intl.accept_languages': 'zh-CN,zh;q=0.9,en;q=0.8'
-    })
-
     # 指定Chrome路径（如果需要），确保路径正确
     chrome_path = '/usr/bin/google-chrome'
     if os.path.exists(chrome_path):
