@@ -82,6 +82,7 @@ def create_chrome_options():
     options.set_argument('--disable-gpu') # 因为没有物理GPU
     options.set_argument('--window-size=1920,1080') # 截图所需分辨率
     options.set_argument('--remote-debugging-port=9222') # 用于DrissionPage连接
+    options.set_header('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8')
 
     # 其他一些有助于稳定性的参数
     options.set_argument('--no-first-run')
