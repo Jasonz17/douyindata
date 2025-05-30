@@ -86,6 +86,16 @@ def create_chrome_options():
     options.set_argument('--disable-plugins')
     options.set_argument('--disable-images')  # 加速加载
     
+    # 添加更多稳定性参数
+    options.set_argument('--no-first-run')
+    options.set_argument('--no-default-browser-check')
+    options.set_argument('--disable-default-apps')
+    options.set_argument('--disable-popup-blocking')
+    options.set_argument('--disable-translate')
+    options.set_argument('--disable-background-timer-throttling')
+    options.set_argument('--disable-renderer-backgrounding')
+    options.set_argument('--disable-backgrounding-occluded-windows')
+    
     # 内存优化
     options.set_argument('--memory-pressure-off')
     options.set_argument('--max_old_space_size=4096')
@@ -95,6 +105,9 @@ def create_chrome_options():
     
     # 窗口大小
     options.set_argument('--window-size=1920,1080')
+    
+    # 设置远程调试端口
+    options.set_argument('--remote-debugging-port=9222')
     
     # 指定Chrome路径（如果需要）
     chrome_path = '/usr/bin/google-chrome'
