@@ -1,116 +1,253 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-from DrissionPage import ChromiumPage, ChromiumOptions
-import time
 import sys
-from DrissionPage.errors import PageDisconnectedError, BrowserConnectError, ElementNotFoundError
+import time
+import subprocess
+import signal
+from DrissionPage import ChromiumPage, ChromiumOptions
 
-
-current_script_dir = os.path.dirname(os.path.abspath(__file__))
-user_data_dir = os.path.join(current_script_dir, 'drissionpage_test_data')
-os.makedirs(user_data_dir, exist_ok=True)
-
-print(f"DEBUG: 用户数据目录设置为: {user_data_dir}", file=sys.stderr)
-
-browser = None
-try:
-    co = ChromiumOptions()
-    co.set_user_data_path(user_data_dir)
-
-    # ****** 关键：明确指定 Chromium 路径 ******
-    # 查找 chromium-browser 的实际路径，通常是 /usr/bin/chromium-browser
-    # DrissionPage 应该能自动找到，但明确指定可以避免歧义
-    # 如果你执行 'which chromium-browser' 得到其他路径，请在这里更新
-    co.set_browser_path('/usr/bin/chromium-browser')
-    # *****************************************
-
-    # 核心参数，禁用沙盒和 /dev/shm
-    co.set_argument('--no-sandbox')
-    co.set_argument('--disable-dev-shm-usage')
-
-    # 强制禁用所有 GPU 相关的参数
-    co.set_argument('--disable-gpu')
-    co.set_argument('--disable-setuid-sandbox')
-    co.set_argument('--disable-seccomp-filter-sandbox')
-    co.set_argument('--no-zygote')
-    co.set_argument('--single-process')
-    co.set_argument('--disable-site-isolation-trials')
-    co.set_argument('--disable-speech-api')
-    co.set_argument('--disable-blink-features=AutomationControlled')
-    co.set_argument('--disable-features=IsolateOrigins,site-per-process')
-    co.set_argument('--enable-automation')
-    co.set_argument('--disable-features=OnDevicePersonalization')
-    co.set_argument('--disable-features=WebRtcHideLocalIpsWithMdns')
-
-    # 强制 Chromium 输出更多日志到 stderr
-    co.set_argument('--enable-logging=stderr')
-    co.set_argument('--v=2') # 增加详细级别到 2
-
-    # 确保没有 --headless=new，我们就是要真·有头
-    # co.set_argument('--headless=new') # 确保此行被注释掉或删除！
-
-    # 额外参数，尝试解决兼容性问题
-    co.set_argument('--disable-accelerated-2d-canvas') # 禁用 2D Canvas 加速
-    co.set_argument('--disable-webgl') # 禁用 WebGL
-    co.set_argument('--disable-features=NetworkService') # 禁用网络服务（激进，如果好了再考虑）
-    co.set_argument('--disable-features=VizDisplayCompositor') # 禁用 Viz 显示合成器
-
-    # 新增一些尝试性参数
-    co.set_argument('--no-first-run') # 避免首次运行向导
-    co.set_argument('--no-default-browser-check') # 避免检查是否为默认浏览器
-    co.set_argument('--disable-background-networking') # 禁用背景网络活动
-    co.set_argument('--disable-background-timer-throttling') # 禁用背景计时器节流
-    co.set_argument('--disable-backgrounding-occluded-windows') # 禁用后台遮挡窗口
-    co.set_argument('--disable-breakpad') # 禁用崩溃报告
-    co.set_argument('--disable-client-side-phishing-detection') # 禁用客户端钓鱼检测
-    co.set_argument('--disable-sync') # 禁用同步
-    co.set_argument('--disable-extensions') # 禁用扩展
-    co.set_argument('--disable-component-update') # 禁用组件更新
-    co.set_argument('--disable-infobars') # 禁用信息条
-    co.set_argument('--disable-translate') # 禁用翻译
-    co.set_argument('--disable-setuid-sandbox') # 再次确认禁用
-    co.set_argument('--disable-web-security') # 禁用web安全策略（谨慎使用，但测试时可能有用）
-
-    print("DEBUG: 尝试创建浏览器实例 (使用 Chromium Browser，真·有头模式)...", file=sys.stderr)
-    # 增加启动超时时间
-    browser = ChromiumPage(co, timeout=30)
-    print("DEBUG: 浏览器实例创建成功！", file=sys.stderr)
-
-    print("DEBUG: 尝试访问百度...", file=sys.stderr)
-    browser.get('https://www.baidu.com')
-    print("DEBUG: 成功访问百度！页面标题:", browser.title, file=sys.stderr)
-
-    time.sleep(5)
-
-    screenshot_path = os.path.join(current_script_dir, 'baidu_screenshot.png')
-    browser.get_screenshot(path=screenshot_path)
-    print(f"DEBUG: 截图已保存到: {screenshot_path}", file=sys.stderr)
-
-except PageDisconnectedError as e:
-    print(f"ERROR: PageDisconnectedError - 页面连接已断开: {e}", file=sys.stderr)
-    print("ERROR: 这通常意味着 Chromium 在 Xvfb 环境中无法正常启动其图形界面，即使所有 ldd 依赖都已满足。", file=sys.stderr)
-    print("ERROR: 可能是 Xvfb 提供的功能不足，或 Chromium 版本与 Xvfb 不兼容。", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
-except BrowserConnectError as e:
-    print(f"ERROR: BrowserConnectError - 浏览器连接失败或无法启动: {e}", file=sys.stderr)
-    print("ERROR: 请检查是否缺少必要的 X11 运行时库，或尝试不同的 Chromium 版本。", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
-except Exception as e:
-    print(f"ERROR: 发生其他错误: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
-finally:
-    if browser:
-        print("DEBUG: 正在关闭浏览器...", file=sys.stderr)
+class XvfbManager:
+    """Xvfb虚拟显示器管理器"""
+    
+    def __init__(self, display=':99', screen='0', resolution='1920x1080x24'):
+        self.display = display
+        self.screen = screen  
+        self.resolution = resolution
+        self.xvfb_process = None
+        
+    def start(self):
+        """启动Xvfb虚拟显示器"""
         try:
-            browser.quit()
-            print("DEBUG: 浏览器已关闭。", file=sys.stderr)
+            # 清理可能存在的Xvfb进程
+            self.cleanup()
+            
+            print(f"启动Xvfb虚拟显示器: DISPLAY={self.display}")
+            
+            # 启动Xvfb
+            cmd = ['Xvfb', self.display, '-screen', self.screen, self.resolution, '-ac', '+extension', 'GLX']
+            self.xvfb_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE
+            )
+            
+            # 设置环境变量
+            os.environ['DISPLAY'] = self.display
+            
+            # 等待Xvfb启动
+            time.sleep(3)
+            
+            # 检查Xvfb是否正常运行
+            if self.xvfb_process.poll() is None:
+                print(f"✅ Xvfb启动成功，DISPLAY={self.display}")
+                return True
+            else:
+                stderr_output = self.xvfb_process.stderr.read().decode()
+                print(f"❌ Xvfb启动失败: {stderr_output}")
+                return False
+                
         except Exception as e:
-            print(f"ERROR: 关闭浏览器时发生错误: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc(file=sys.stderr)
-    else:
-        print("DEBUG: 浏览器未成功启动，无需关闭。", file=sys.stderr)
+            print(f"❌ 启动Xvfb时出错: {e}")
+            return False
+    
+    def stop(self):
+        """停止Xvfb"""
+        if self.xvfb_process and self.xvfb_process.poll() is None:
+            print("停止Xvfb进程...")
+            self.xvfb_process.terminate()
+            try:
+                self.xvfb_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.xvfb_process.kill()
+    
+    def cleanup(self):
+        """清理残留的Xvfb进程"""
+        try:
+            subprocess.run(['pkill', '-f', f'Xvfb.*{self.display}'], 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL)
+            time.sleep(1)
+        except:
+            pass
 
-print("DEBUG: 脚本执行结束。", file=sys.stderr)
+def create_chrome_options():
+    """创建Chrome选项配置"""
+    options = ChromiumOptions()
+    
+    # 基础选项
+    options.set_argument('--no-sandbox')
+    options.set_argument('--disable-dev-shm-usage')
+    options.set_argument('--disable-gpu')
+    options.set_argument('--disable-web-security')
+    options.set_argument('--disable-features=VizDisplayCompositor')
+    options.set_argument('--disable-extensions')
+    options.set_argument('--disable-plugins')
+    options.set_argument('--disable-images')  # 加速加载
+    
+    # 内存优化
+    options.set_argument('--memory-pressure-off')
+    options.set_argument('--max_old_space_size=4096')
+    
+    # 用户代理
+    options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    
+    # 窗口大小
+    options.set_argument('--window-size=1920,1080')
+    
+    # 指定Chrome路径（如果需要）
+    chrome_path = '/usr/bin/google-chrome'
+    if os.path.exists(chrome_path):
+        options.set_browser_path(chrome_path)
+    
+    return options
+
+def test_basic_browser():
+    """基础浏览器测试"""
+    xvfb = None
+    browser = None
+    
+    try:
+        print("="*50)
+        print("开始DrissionPage + Xvfb 测试")
+        print("="*50)
+        
+        # 1. 启动Xvfb
+        xvfb = XvfbManager()
+        if not xvfb.start():
+            print("❌ Xvfb启动失败，退出测试")
+            return False
+        
+        # 2. 创建浏览器实例
+        print("\n🚀 创建浏览器实例...")
+        options = create_chrome_options()
+        browser = ChromiumPage(addr_driver_opts=options)
+        
+        print("✅ 浏览器创建成功")
+        
+        # 3. 访问百度
+        print("\n🌐 访问百度首页...")
+        browser.get('https://www.baidu.com')
+        
+        # 等待页面加载
+        time.sleep(5)
+        
+        # 4. 检查页面标题
+        title = browser.title
+        print(f"📄 页面标题: {title}")
+        
+        if '百度' in title or 'baidu' in title.lower():
+            print("✅ 成功访问百度首页!")
+            
+            # 5. 获取页面信息
+            url = browser.url
+            print(f"🔗 当前URL: {url}")
+            
+            # 6. 尝试查找搜索框
+            try:
+                search_box = browser.ele('#kw')  # 百度搜索框ID
+                if search_box:
+                    print("✅ 找到搜索框元素")
+                    
+                    # 输入测试文本
+                    search_box.input('DrissionPage测试')
+                    print("✅ 输入测试文本成功")
+                    
+                    time.sleep(2)
+                    
+                else:
+                    print("⚠️  未找到搜索框，可能页面结构有变化")
+                    
+            except Exception as e:
+                print(f"⚠️  操作搜索框时出错: {e}")
+            
+            return True
+        else:
+            print(f"❌ 页面标题异常: {title}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ 测试过程中出错: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+        
+    finally:
+        # 清理资源
+        print("\n🧹 清理资源...")
+        if browser:
+            try:
+                browser.quit()
+                print("✅ 浏览器已关闭")
+            except:
+                pass
+                
+        if xvfb:
+            xvfb.stop()
+            print("✅ Xvfb已停止")
+        
+        print("测试完成!")
+
+def check_environment():
+    """检查运行环境"""
+    print("🔍 检查运行环境...")
+    
+    # 检查Python版本
+    python_version = sys.version
+    print(f"Python版本: {python_version}")
+    
+    # 检查必要的命令
+    commands = ['google-chrome', 'Xvfb']
+    for cmd in commands:
+        try:
+            result = subprocess.run(['which', cmd], capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ {cmd}: {result.stdout.strip()}")
+            else:
+                print(f"❌ {cmd}: 未找到")
+        except:
+            print(f"❌ {cmd}: 检查失败")
+    
+    # 检查Chrome版本
+    try:
+        result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ Chrome版本: {result.stdout.strip()}")
+        else:
+            print(f"❌ Chrome版本检查失败")
+    except:
+        print(f"❌ Chrome版本检查异常")
+    
+    # 检查DrissionPage
+    try:
+        import DrissionPage
+        print(f"✅ DrissionPage版本: {DrissionPage.__version__}")
+    except ImportError:
+        print("❌ DrissionPage未安装")
+    except:
+        print("✅ DrissionPage已安装")
+    
+    print("-" * 50)
+
+if __name__ == "__main__":
+    # 设置信号处理，确保能够正常退出
+    def signal_handler(signum, frame):
+        print("\n收到退出信号，正在清理...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # 检查环境
+    check_environment()
+    
+    # 运行测试
+    success = test_basic_browser()
+    
+    if success:
+        print("\n🎉 测试成功！可以继续下一步开发。")
+        sys.exit(0)
+    else:
+        print("\n❌ 测试失败，请检查错误信息。")
+        sys.exit(1)
