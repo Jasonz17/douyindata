@@ -174,9 +174,71 @@ def test_douyin_page():
             try:
                 page.get_screenshot(path=screenshot_path)
                 print("✅ 截图成功！")
-                return True
             except Exception as e:
                 print(f"❌ 截图失败: {e}")
+                return False
+                
+            # 6. 开始登录流程
+            print("\n🔐 开始登录流程...")
+            
+            # 定位并设置国家代码
+            country_code_input = page.ele('css:.B7N1ZHMr')
+            if country_code_input:
+                country_code_input.input('86')
+                print("✅ 已设置国家代码为+86")
+            else:
+                print("❌ 未找到国家代码输入框")
+                return False
+
+            # 获取用户手机号
+            phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
+            if phone_input:
+                phone_number = input("请输入手机号: ")
+                phone_input.input(phone_number)
+                print("✅ 已输入手机号")
+            else:
+                print("❌ 未找到手机号输入框")
+                return False
+
+            # 点击获取验证码
+            verify_button = page.ele('xpath://span[text()="获取验证码"]')
+            if verify_button:
+                verify_button.click()
+                print("✅ 已点击获取验证码按钮")
+            else:
+                print("❌ 未找到验证码按钮")
+                return False
+
+            # 获取用户输入的验证码
+            verify_code = input("请输入收到的验证码: ")
+            verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
+            if verify_input:
+                verify_input.input(verify_code)
+                print("✅ 已输入验证码")
+            else:
+                print("❌ 未找到验证码输入框")
+                return False
+
+            # 点击登录按钮
+            login_button = page.ele('xpath://div[text()="登录/注册"]')
+            if login_button:
+                login_button.click()
+                print("✅ 已点击登录按钮")
+                # 等待登录完成
+                time.sleep(5)
+            else:
+                print("❌ 未找到登录按钮")
+                return False
+
+            # 登录后截图
+            login_screenshot_path = './login_screenshot.png'
+            print(f"\n📸 正在保存登录后截图到: {login_screenshot_path}")
+            try:
+                page.get_screenshot(path=login_screenshot_path)
+                print("✅ 登录后截图成功！")
+                return True
+            except Exception as e:
+                print(f"❌ 登录后截图失败: {e}")
                 return False
         else:
             print(f"❌ 页面标题或URL异常，可能未成功加载抖音内容。")
