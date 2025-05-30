@@ -107,7 +107,7 @@ def create_chrome_options():
         options.set_browser_path(chrome_path)
 
     # ！！！重要：设置 Accept-Language 偏好！！！
-    options.set_pref('intl.accept_languages', 'zh-CN,zh;q=0.9,en;q=0.8')
+    options.set_pref('accept_languages', 'zh-CN,zh;q=0.9,en;q=0.8')
 
     return options
 
