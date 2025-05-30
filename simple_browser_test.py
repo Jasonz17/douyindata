@@ -87,20 +87,12 @@ def create_chrome_options():
     options.set_argument('--remote-debugging-port=9222') # 用于DrissionPage连接
 
     # 其他一些有助于稳定性的参数
-    options.set_argument('--no-first-run')
-    options.set_argument('--no-default-browser-check')
-    options.set_argument('--disable-default-apps')
-    options.set_argument('--disable-popup-blocking')
-    options.set_argument('--disable-translate')
-    options.set_argument('--disable-background-timer-throttling')
-    options.set_argument('--disable-renderer-backgrounding')
-    options.set_argument('--disable-backgrounding-occluded-windows')
-    options.set_argument('--disable-extensions') # 禁用扩展，减少指纹
-    options.set_argument('--accept-lang','zh-CN,zh;q=0.9,en;q=0.8')
+    
+    options.set_argument('--accept-lang','zh-CN,zh;')
 
     # 伪装User-Agent，保持与Chrome版本一致
     # 根据你的实际Chrome版本 137.0.0.0 更新 User-Agent
-    options.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36')
+    options.set_user_agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
 
     # 指定Chrome路径（如果需要），确保路径正确
     chrome_path = '/usr/bin/google-chrome'
