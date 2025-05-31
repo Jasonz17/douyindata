@@ -184,7 +184,9 @@ def test_douyin_page():
             
             # 定位并设置国家代码
             try:
-                country_code_input = page.ele('css:.B7N1ZHMr')
+                # 注意：这个选择器 .B7N1ZHMr 可能会随抖音页面更新而变化，
+                # 如果找不到，需要检查页面源码更新选择器。
+                country_code_input = page.ele('css:.B7N1ZHMr') 
                 print(f"国家代码输入框查找结果: {'找到' if country_code_input else '未找到'}")
                 if country_code_input:
                     country_code_input.input('86')
@@ -192,14 +194,14 @@ def test_douyin_page():
                 else:
                     print("❌ 未找到国家代码输入框")
                     # 尝试截图记录当前页面状态
-                    debug_screenshot_path = './debug_screenshot.png'
+                    debug_screenshot_path = './debug_country_code_error.png'
                     page.get_screenshot(path=debug_screenshot_path)
                     print(f"已保存调试截图到 {debug_screenshot_path}")
                     return False
             except Exception as e:
                 print(f"❌ 设置国家代码时出错: {e}")
                 # 尝试截图记录当前页面状态
-                debug_screenshot_path = './debug_screenshot.png'
+                debug_screenshot_path = './debug_country_code_error.png'
                 page.get_screenshot(path=debug_screenshot_path)
                 print(f"已保存调试截图到 {debug_screenshot_path}")
                 return False
@@ -207,19 +209,11 @@ def test_douyin_page():
             # 获取用户手机号
             try:
                 print("🔍 尝试查找手机号输入框...")
+                # 推荐使用placeholder来定位，相对稳定
                 phone_input = page.ele('xpath://*[@placeholder="请输入手机号"]')
                 print(f"手机号输入框查找结果: {'找到' if phone_input else '未找到'}")
                 
                 if phone_input:
-                    # 尝试其他定位方式，以防万一
-                    print("尝试其他定位方式查找手机号输入框...")
-                    try:
-                        # 尝试通过CSS选择器定位
-                        alt_phone_input = page.ele('css:input[placeholder="请输入手机号"]')
-                        print(f"通过CSS选择器查找手机号输入框: {'找到' if alt_phone_input else '未找到'}")
-                    except:
-                        pass
-                    
                     phone_number = input("请输入手机号: ")
                     phone_input.input(phone_number)
                     print("✅ 已输入手机号")
@@ -235,7 +229,7 @@ def test_douyin_page():
                 else:
                     print("❌ 未找到手机号输入框")
                     # 尝试截图记录当前页面状态
-                    debug_screenshot_path = './debug_phone_input.png'
+                    debug_screenshot_path = './debug_phone_input_not_found.png'
                     page.get_screenshot(path=debug_screenshot_path)
                     print(f"已保存调试截图到 {debug_screenshot_path}")
                     
@@ -257,80 +251,103 @@ def test_douyin_page():
                     return False
             except Exception as e:
                 print(f"❌ 查找手机号输入框时出错: {e}")
-                debug_screenshot_path = './debug_phone_error.png'
+                debug_screenshot_path = './debug_phone_input_error.png'
                 page.get_screenshot(path=debug_screenshot_path)
                 print(f"已保存调试截图到 {debug_screenshot_path}")
                 return False
 
             # 等待一下，确保手机号输入完成后页面有响应
-        print("⏳ 等待页面响应...")
-        time.sleep(3)
-        
-        # 点击获取验证码
-        verify_button = page.ele('xpath://span[text()="获取验证码"]')
-        if verify_button:
-            # 截图记录点击验证码按钮前的状态
-            verify_before_screenshot_path = './verify_before_screenshot.png'
-            print(f"\n📸 正在保存点击验证码按钮前的截图到: {verify_before_screenshot_path}")
-            try:
-                page.get_screenshot(path=verify_before_screenshot_path)
-                print(f"✅ 验证码按钮点击前截图成功！已保存到 {verify_before_screenshot_path}")
-            except Exception as e:
-                print(f"❌ 验证码按钮点击前截图失败: {e}")
-                
-            # 点击验证码按钮
-            verify_button.click()
-            print("✅ 已点击获取验证码按钮")
-            
-            # 等待一下，确保验证码发送请求已经触发
-            print("⏳ 等待验证码发送...")
+            print("⏳ 等待页面响应...")
             time.sleep(3)
             
-            # 截图记录点击验证码按钮后的状态
-            verify_after_screenshot_path = './verify_after_screenshot.png'
-            print(f"\n📸 正在保存点击验证码按钮后的截图到: {verify_after_screenshot_path}")
-            try:
-                page.get_screenshot(path=verify_after_screenshot_path)
-                print(f"✅ 验证码按钮点击后截图成功！已保存到 {verify_after_screenshot_path}")
-            except Exception as e:
-                print(f"❌ 验证码按钮点击后截图失败: {e}")
-            else:
+            # 点击获取验证码
+            verify_button = page.ele('xpath://span[text()="获取验证码"]')
+            if verify_button: # **这个 if 块现在是独立的，其 else 块将正确处理未找到按钮的情况**
+                # 截图记录点击验证码按钮前的状态
+                verify_before_screenshot_path = './verify_before_screenshot.png'
+                print(f"\n📸 正在保存点击验证码按钮前的截图到: {verify_before_screenshot_path}")
+                try:
+                    page.get_screenshot(path=verify_before_screenshot_path)
+                    print(f"✅ 验证码按钮点击前截图成功！已保存到 {verify_before_screenshot_path}")
+                except Exception as e:
+                    print(f"❌ 验证码按钮点击前截图失败: {e}")
+                    
+                # 点击验证码按钮
+                verify_button.click()
+                print("✅ 已点击获取验证码按钮")
+                
+                # 等待一下，确保验证码发送请求已经触发
+                # **增加等待时间，给验证码发送、潜在的滑块/验证码加载留出充足时间**
+                print("⏳ 等待验证码发送... (增加等待时间以应对网络延迟和潜在验证码加载)")
+                time.sleep(7) 
+                
+                # 截图记录点击验证码按钮后的状态
+                verify_after_screenshot_path = './verify_after_screenshot.png'
+                print(f"\n📸 正在保存点击验证码按钮后的截图到: {verify_after_screenshot_path}")
+                try:
+                    page.get_screenshot(path=verify_after_screenshot_path)
+                    print(f"✅ 验证码按钮点击后截图成功！已保存到 {verify_after_screenshot_path}")
+                except Exception as e:
+                    print(f"❌ 验证码按钮点击后截图失败: {e}")
+
+                # **重要：这里你需要检查是否出现了验证码（如滑块验证码）**
+                # 如果 verify_after_screenshot.png 显示了验证码，你的脚本需要处理它。
+                # 否则，接下来的验证码输入会失败。
+                # 例如，你可以添加一个检查：
+                # if page.ele('css:选择器来检测滑块验证码或其他验证码弹窗'):
+                #     print("检测到验证码/滑块，请手动处理或添加识别逻辑。")
+                #     return False # 暂时返回，待解决验证码问题
+                
+                # 获取用户输入的验证码
+                verify_code = input("请输入收到的验证码: ")
+                verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
+                if verify_input:
+                    verify_input.input(verify_code)
+                    print("✅ 已输入验证码")
+                else:
+                    print("❌ 未找到验证码输入框")
+                    debug_no_verify_input_after_click_screenshot = './debug_no_verify_input_after_click.png'
+                    page.get_screenshot(path=debug_no_verify_input_after_click_screenshot)
+                    print(f"已保存调试截图到 {debug_no_verify_input_after_click_screenshot}")
+                    return False
+
+                # 点击登录按钮
+                login_button = page.ele('xpath://div[text()="登录/注册"]')
+                if login_button:
+                    login_button.click()
+                    print("✅ 已点击登录按钮")
+                    # 等待登录完成
+                    time.sleep(5)
+                else:
+                    print("❌ 未找到登录按钮")
+                    debug_no_login_button_screenshot = './debug_no_login_button.png'
+                    page.get_screenshot(path=debug_no_login_button_screenshot)
+                    print(f"已保存调试截图到 {debug_no_login_button_screenshot}")
+                    return False
+
+                # 登录后截图
+                login_screenshot_path = './login_screenshot.png'
+                print(f"\n📸 正在保存登录后截图到: {login_screenshot_path}")
+                try:
+                    page.get_screenshot(path=login_screenshot_path)
+                    print("✅ 登录后截图成功！")
+                    return True
+                except Exception as e:
+                    print(f"❌ 登录后截图失败: {e}")
+                    return False
+            else: # **这个 else 块属于上面的 if verify_button:**
                 print("❌ 未找到验证码按钮")
+                # 当验证码按钮未找到时，也截图以供调试
+                debug_verify_button_not_found_screenshot = './debug_verify_button_not_found.png'
+                page.get_screenshot(path=debug_verify_button_not_found_screenshot)
+                print(f"已保存调试截图到 {debug_verify_button_not_found_screenshot}")
                 return False
-
-            # 获取用户输入的验证码
-            verify_code = input("请输入收到的验证码: ")
-            verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
-            if verify_input:
-                verify_input.input(verify_code)
-                print("✅ 已输入验证码")
-            else:
-                print("❌ 未找到验证码输入框")
-                return False
-
-            # 点击登录按钮
-            login_button = page.ele('xpath://div[text()="登录/注册"]')
-            if login_button:
-                login_button.click()
-                print("✅ 已点击登录按钮")
-                # 等待登录完成
-                time.sleep(5)
-            else:
-                print("❌ 未找到登录按钮")
-                return False
-
-            # 登录后截图
-            login_screenshot_path = './login_screenshot.png'
-            print(f"\n📸 正在保存登录后截图到: {login_screenshot_path}")
-            try:
-                page.get_screenshot(path=login_screenshot_path)
-                print("✅ 登录后截图成功！")
-                return True
-            except Exception as e:
-                print(f"❌ 登录后截图失败: {e}")
-                return False
-        else:
+        else: # 这个 else 块属于最外层的 if '抖音' in title...
             print(f"❌ 页面标题或URL异常，可能未成功加载抖音内容。")
+            # 如果页面加载不成功，也截个图
+            debug_page_load_fail_screenshot = './debug_page_load_fail.png'
+            page.get_screenshot(path=debug_page_load_fail_screenshot)
+            print(f"已保存调试截图到 {debug_page_load_fail_screenshot}")
             return False
 
     except Exception as e:
