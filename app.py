@@ -3,12 +3,85 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 from urllib.parse import urlparse, parse_qs
 import json
 import os
+import sys
+import time
+import subprocess
+import signal
 
 app = Flask(__name__)
 
-# --- Configuration for DrissionPage (from video_data_final.py) ---
+# --- XvfbManager 类定义 (从 login.py 复制) ---
+user_data_dir = os.path.join(os.path.expanduser('~'), 'drissionpagedata')
+os.makedirs(user_data_dir, exist_ok=True)
+
+class XvfbManager:
+    """Xvfb虚拟显示器管理器"""
+
+    def __init__(self, display=':99', screen='0', resolution='1920x1080x24'):
+        self.display = display
+        self.screen = screen
+        self.resolution = resolution
+        self.xvfb_process = None
+
+    def start(self):
+        """启动Xvfb虚拟显示器"""
+        try:
+            # 清理可能存在的Xvfb进程
+            self.cleanup()
+
+            print(f"启动Xvfb虚拟显示器: DISPLAY={self.display}")
+
+            # 启动Xvfb，加上了GLX扩展，这可能是之前成功的关键
+            cmd = ['Xvfb', self.display, '-screen', self.screen, self.resolution, '-ac', '+extension', 'GLX']
+            self.xvfb_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE
+            )
+
+            # 设置环境变量
+            os.environ['DISPLAY'] = self.display
+
+            # 等待Xvfb启动
+            time.sleep(3)
+
+            # 检查Xvfb是否正常运行
+            if self.xvfb_process.poll() is None:
+                print(f"✅ Xvfb启动成功，DISPLAY={self.display}")
+                return True
+            else:
+                stderr_output = self.xvfb_process.stderr.read().decode()
+                print(f"❌ Xvfb启动失败: {stderr_output}")
+                return False
+
+        except Exception as e:
+            print(f"❌ 启动Xvfb时出错: {e}")
+            return False
+
+    def stop(self):
+        """停止Xvfb"""
+        if self.xvfb_process and self.xvfb_process.poll() is None:
+            print("停止Xvfb进程...")
+            self.xvfb_process.terminate()
+            try:
+                self.xvfb_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.xvfb_process.kill()
+
+    def cleanup(self):
+        """清理残留的Xvfb进程"""
+        try:
+            subprocess.run(['pkill', '-f', f'Xvfb.*{self.display}'],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+            time.sleep(1)
+        except:
+            pass
+# --- XvfbManager 类定义结束 ---
+
+
+# --- Configuration for DrissionPage (from video_data_final.py and adjusted for Xvfb) ---
 # 定义一个用于保存浏览器用户资料的目录路径
-# 注意：在 Docker 部署时，这个路径可能需要调整到容器内部的持久化存储位置
 user_data_dir = os.path.join(os.path.expanduser('~'), 'drissionpagedata')
 os.makedirs(user_data_dir, exist_ok=True)
 
@@ -19,7 +92,55 @@ co.set_user_data_path(user_data_dir)
 co.set_argument('--no-sandbox')
 co.set_argument('--disable-dev-shm-usage')
 co.set_argument('--disable-gpu')
+co.set_argument('--window-size=1920,1080') # Consistent with login.py's resolution
+co.set_argument('--remote-debugging-port=9222')
+co.set_argument('--accept-lang','zh-CN')
+co.set_argument('--no-first-run')
+co.set_argument('--no-default-browser-check')
+co.set_argument('--disable-default-apps')
+co.set_argument('--disable-popup-blocking')
+co.set_argument('--disable-translate')
+co.set_argument('--disable-background-timer-throttling')
+co.set_argument('--disable-renderer-backgrounding')
+co.set_argument('--disable-backgrounding-occluded-windows')
+co.set_argument('--disable-extensions')
+co.set_user_agent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+chrome_path = '/usr/bin/google-chrome'
+if os.path.exists(chrome_path):
+    co.set_browser_path(chrome_path)
+# ！！！重要：不设置headless()，让Xvfb处理显示！！！
+# co.headless()
 # --- End DrissionPage Configuration ---
+
+
+# --- Xvfb Manager Initialization and Lifecycle Functions ---
+xvfb_manager = None
+
+def start_xvfb_for_app():
+    """Starts Xvfb when the application initializes."""
+    global xvfb_manager
+    print("Initializing Xvfb for app...")
+    xvfb_manager = XvfbManager()
+    if not xvfb_manager.start():
+        print("❌ Xvfb failed to start. Exiting application.")
+        sys.exit(1)
+    print("✅ Xvfb started successfully for app.")
+
+def stop_xvfb_for_app(signum=None, frame=None):
+    """Stops Xvfb gracefully."""
+    global xvfb_manager
+    if xvfb_manager:
+        print("Stopping Xvfb for app...")
+        xvfb_manager.stop()
+        print("✅ Xvfb stopped for app.")
+    sys.exit(0) # Exit the application after stopping Xvfb
+
+
+# Register signal handlers for graceful shutdown
+signal.signal(signal.SIGINT, stop_xvfb_for_app)  # Handle Ctrl+C
+signal.signal(signal.SIGTERM, stop_xvfb_for_app) # Handle termination signals
+# --- End Xvfb Manager Initialization and Lifecycle Functions ---
+
 
 @app.route('/')
 def index():
@@ -44,6 +165,7 @@ def get_single_video_url():
         print("已配置浏览器参数：--no-sandbox, --disable-dev-shm-usage, --disable-gpu")
 
         print("正在创建浏览器实例...")
+        # Now ChromiumPage will use the options configured with Xvfb
         browser = ChromiumPage(co)
         print("浏览器实例创建成功")
 
@@ -131,59 +253,51 @@ def get_user_videos():
         return jsonify({'error': 'Missing pageurl parameter'}), 400
 
     browser = None
-    all_extracted_videos = [] # 存储所有提取到的视频数据
+    all_extracted_videos = []
 
     try:
         browser = ChromiumPage(co)
         browser.listen.start('aweme/v1/web/aweme/post/')
 
-        target_profile_url = page_url # 使用前端传入的 pageurl
+        target_profile_url = page_url
         browser.get(target_profile_url)
         print(f"正在访问抖音主页: {browser.url}")
 
-        page_counter = 0 # 用于跟踪采集的“页”数
-        should_stop_scrolling = False # 新增标志位，控制是否停止滚动和退出
+        page_counter = 0
+        should_stop_scrolling = False
 
-        while True: # 循环直到遇到停止条件
+        while True:
             page_counter += 1
             print(f'\n正在采集第{page_counter}页的数据')
 
-            # --- 1. 判定停止条件：页面上是否出现“暂时没有更多了” ---
-            # 如果检测到停止文本，设置标志位，但当前循环仍要处理数据
-            no_more_element = browser.ele('xpath://*[text()="暂时没有更多了"]', timeout=1) # timeout=1 表示非阻塞查找
+            no_more_element = browser.ele('xpath://*[text()="暂时没有更多了"]', timeout=1)
             if no_more_element:
                 print("检测到 '暂时没有更多了' 文本。将处理完当前数据后停止滚动。")
-                should_stop_scrolling = True # 设置标志位
+                should_stop_scrolling = True
 
-            # --- 2. 获取所有数据包 (根据文档，使用 listen.wait(count, timeout, fit_count=False)) ---
             try:
-                # 使用你的原始代码中的 listen.wait 参数
                 all_captured_responses = browser.listen.wait(count=9999, timeout=10, fit_count=False)
 
-                if not all_captured_responses: # 如果返回的是空列表
+                if not all_captured_responses:
                     print("本轮滚动未捕捉到任何新的API响应，可能已到底部或加载失败。")
-                    if should_stop_scrolling: # 如果已经检测到停止文本，并且没有新数据包，直接停止
+                    if should_stop_scrolling:
                         break
-                    # 如果没有检测到停止文本，但也没有新数据包，也应该停止
                     print("未检测到结束文本，但本轮未捕捉到任何新数据包，也未提取到视频，停止采集。")
-                    break # 确保没有捕捉到响应时能停止
+                    break
 
-                processed_packets_count = 0 # 记录本次滚动获取的数据包数量
-                total_videos_this_round = 0 # 记录本次滚动提取的视频数量
+                processed_packets_count = 0
+                total_videos_this_round = 0
 
-                for resp_item in all_captured_responses: # 遍历所有捕获到的响应
+                for resp_item in all_captured_responses:
                     try:
-                        # 再次检查URL，确保只处理目标API响应
                         if 'aweme/v1/web/aweme/post/' in resp_item.url:
-                            # 根据您原始代码能运行的逻辑，直接使用 resp_item.response.body
                             json_data = resp_item.response.body
                             processed_packets_count += 1
 
-                            # --- 3. 提取并处理数据 (保持你的原始逻辑) ---
-                            video_data = json_data['aweme_list'] # 保持你原始代码的直接访问方式
+                            video_data = json_data['aweme_list']
                             if not video_data:
                                 print(f"数据包 {processed_packets_count} (URL: {resp_item.url}) 中没有 aweme_list 数据。")
-                                continue # 跳过当前数据包，处理下一个
+                                continue
 
                             for index in video_data:
                                 extracted_video = {
@@ -198,41 +312,37 @@ def get_user_videos():
                                     "video_share": index['statistics']['share_count'],
                                     "video_download_url": index['video']['play_addr']['url_list'][2]
                                 }
-                                all_extracted_videos.append(extracted_video) # 将提取到的视频数据添加到列表中
+                                all_extracted_videos.append(extracted_video)
                                 total_videos_this_round += 1
                                 print(f"提取并打印视频 (数据包 {processed_packets_count}):  {extracted_video['video_title']}")
 
                     except Exception as e:
-                        # 捕获处理数据包时可能出现的任何错误
                         print(f"处理数据包 {resp_item.url} 时出错: {e}")
                         continue
 
                 if total_videos_this_round == 0 and processed_packets_count > 0:
                     print(f"本轮捕捉到 {processed_packets_count} 个数据包，但未提取到任何视频，可能已到底部。")
-                    if should_stop_scrolling: # 如果已经检测到停止文本，并且没有新数据包，直接停止
+                    if should_stop_scrolling:
                         break
                     print("未检测到结束文本，但本轮提取不到视频，停止采集。")
-                    break # 如果处理了数据包但没新增视频，也停止
+                    break
 
-            except Exception as e: # 捕获 listen.wait() 可能的超时或其他异常
+            except Exception as e:
                 print(f"等待API响应时发生错误或超时: {e}")
                 print("这可能意味着没有更多内容加载，或者网络问题。停止采集。")
-                break # 退出 while 循环
+                break
 
-            # --- 4. 判定是否停止滚动和退出循环 (新的逻辑) ---
             if should_stop_scrolling:
                 print("已检测到结束文本，不再执行滚动操作，并准备停止采集。")
-                break # 退出外层循环，结束采集
+                break
 
-            # --- 5. 定位页面元素并滚动 ---
             tab = browser.ele('xpath://footer[@class="user-page-footer"]/div[1]')
 
-            # 滑动
             if tab:
                 browser.scroll.to_see(tab)
             else:
                 print("未找到用于滚动的目标元素，可能页面结构已改变或已到底部。停止采集。")
-                break # 如果找不到滚动目标，也停止循环
+                break
 
 
         print("\n--- 采集流程结束 ---")
@@ -254,7 +364,10 @@ def get_user_videos():
                 pass
 
 if __name__ == '__main__':
-    # 确保 templates 文件夹存在，并且 index.html 位于其中
-    # 否则 Flask 找不到模板文件
-    # 在 Docker 环境中，这个路径也需要正确配置
+    start_xvfb_for_app() # Start Xvfb when the app runs
+
+    # You might want to consider running Flask in a production-ready WSGI server like Gunicorn
+    # in a real deployment, rather than directly using app.run()
     app.run(host='0.0.0.0', port=8000, debug=False)
+    # The following line will only be reached if app.run() somehow exits without sys.exit
+    stop_xvfb_for_app() # Ensure Xvfb is stopped if app.run exits for some reason
