@@ -138,8 +138,6 @@ def test_douyin_page():
         page = browser.latest_tab
 
         print("✅ 浏览器创建成功")
-        
-        
 
         # 3. 访问抖音页面
         douyin_url = 'https://v.douyin.com/IAqLrgefUPA/'
@@ -300,7 +298,6 @@ def test_douyin_page():
                 print("❌ 未找到验证码按钮")
                 return False
 
-                
             # 获取用户输入的验证码
             verify_code = input("请输入收到的验证码: ")
             verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
@@ -310,7 +307,6 @@ def test_douyin_page():
             else:
                 print("❌ 未找到验证码输入框")
                 return False
-
 
             # 点击登录按钮
             login_button = page.ele('xpath://div[text()="登录/注册"]')
