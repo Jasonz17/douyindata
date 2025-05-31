@@ -326,6 +326,10 @@ def test_douyin_page():
             face_verify_element.click()
             print("✅ 已点击 '刷脸验证'。")
 
+            # 在点击后增加3秒等待，给二维码加载时间
+            print("⏳ 等待3秒，等待二维码加载...")
+            time.sleep(3) 
+
             # 点击后截图
             face_verify_clicked_screenshot_path = './face_verify_after_click.png'
             print(f"📸 正在保存点击 '刷脸验证' 后的截图到: {face_verify_clicked_screenshot_path}")
@@ -359,6 +363,11 @@ def test_douyin_page():
         else:
             print("❌ 未定位到 '刷脸验证' 元素，执行默认流程。")
             time.sleep(5) # 等待5秒
+            
+            # 未找到刷脸验证时也等待3秒再截图
+            print("⏳ 未找到'刷脸验证'，等待3秒...")
+            time.sleep(3)
+
             default_final_screenshot_path = './no_face_verify_final_screenshot.png'
             print(f"📸 正在保存未找到 '刷脸验证' 后的最终截图到: {default_final_screenshot_path}")
             try:
