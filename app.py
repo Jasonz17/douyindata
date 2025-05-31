@@ -9,7 +9,7 @@ app = Flask(__name__)
 # --- Configuration for DrissionPage (from video_data_final.py) ---
 # 定义一个用于保存浏览器用户资料的目录路径
 # 注意：在 Docker 部署时，这个路径可能需要调整到容器内部的持久化存储位置
-user_data_dir = os.path.join(current_script_dir, 'drissionpage')
+user_data_dir = os.path.join(os.path.expanduser('~'), 'drissionpagedata')
 os.makedirs(user_data_dir, exist_ok=True)
 
 # 创建 ChromiumOptions 实例
