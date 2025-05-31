@@ -6,7 +6,7 @@ import sys
 import time
 import subprocess
 import signal
-from DrissionPage import Chromium, ChromiumOptions
+from DrissionPage import Chromium, ChromiumPage, ChromiumOptions
 
 user_data_dir = os.path.join(os.path.expanduser('~'), 'drissionpagedata')
 os.makedirs(user_data_dir, exist_ok=True)
