@@ -300,6 +300,17 @@ def test_douyin_page():
                 print("❌ 未找到验证码按钮")
                 return False
 
+                
+            # 获取用户输入的验证码
+            verify_code = input("请输入收到的验证码: ")
+            verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
+            if verify_input:
+                verify_input.input(verify_code)
+                print("✅ 已输入验证码")
+            else:
+                print("❌ 未找到验证码输入框")
+                return False
+
 
             # 点击登录按钮
             login_button = page.ele('xpath://div[text()="登录/注册"]')
