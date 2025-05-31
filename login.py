@@ -8,6 +8,9 @@ import subprocess
 import signal
 from DrissionPage import Chromium, ChromiumOptions
 
+user_data_dir = os.path.join(os.path.expanduser('~'), 'drissionpagedata')
+os.makedirs(user_data_dir, exist_ok=True)
+
 class XvfbManager:
     """Xvfb虚拟显示器管理器"""
 
@@ -75,6 +78,7 @@ class XvfbManager:
 def create_chrome_options():
     """创建Chrome选项配置"""
     options = ChromiumOptions()
+    options.set_user_data_path(user_data_dir)
 
     # 基础选项（保留有助于稳定性和反检测的）
     options.set_argument('--no-sandbox')
