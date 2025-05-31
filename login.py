@@ -192,9 +192,6 @@ def test_douyin_page():
         print(f"当前页面标题: {page.title}")
         print(f"当前页面URL: {page.url}")
         
-        # 尝试查找登录框元素
-        print("🔍 尝试查找登录框元素...")
-        
         # 定位并设置国家代码
         try:
             country_code_input = page.ele('css:.B7N1ZHMr')
@@ -291,7 +288,7 @@ def test_douyin_page():
             login_button.click()
             print("✅ 已点击登录按钮")
             # 等待登录完成
-            time.sleep(5)
+            time.sleep(5) # 增加等待时间，确保页面跳转和内容加载
         else:
             print("❌ 未找到登录按钮")
             return False
@@ -302,10 +299,74 @@ def test_douyin_page():
         try:
             page.get_screenshot(path=login_screenshot_path)
             print("✅ 登录后截图成功！")
-            return True
         except Exception as e:
             print(f"❌ 登录后截图失败: {e}")
             return False
+
+        # --- 新增：处理刷脸验证逻辑 ---
+        print("\n🔍 尝试查找 '刷脸验证' 元素...")
+        
+        # 再次等待一下，确保登录后的页面内容加载
+        time.sleep(5) 
+        
+        # 定位刷脸验证元素
+        face_verify_element = page.ele('xpath://div[contains(text(), "刷脸验证")]', timeout=10) # 增加查找超时时间
+        
+        if face_verify_element:
+            print("✅ 已定位到 '刷脸验证' 元素。")
+            face_verify_screenshot_path = './face_verify_before_click.png'
+            print(f"📸 正在保存点击 '刷脸验证' 前的截图到: {face_verify_screenshot_path}")
+            try:
+                page.get_screenshot(path=face_verify_screenshot_path)
+                print("✅ '刷脸验证' 前截图成功！")
+            except Exception as e:
+                print(f"❌ '刷脸验证' 前截图失败: {e}")
+
+            print("⚡ 正在点击 '刷脸验证'...")
+            face_verify_element.click()
+            print("✅ 已点击 '刷脸验证'。")
+
+            # 点击后截图
+            face_verify_clicked_screenshot_path = './face_verify_after_click.png'
+            print(f"📸 正在保存点击 '刷脸验证' 后的截图到: {face_verify_clicked_screenshot_path}")
+            try:
+                page.get_screenshot(path=face_verify_clicked_screenshot_path)
+                print("✅ '刷脸验证' 后截图成功！")
+            except Exception as e:
+                print(f"❌ '刷脸验证' 后截图失败: {e}")
+            
+            # 暂停程序，等待用户确认
+            while True:
+                user_input = input("\n检测到'刷脸验证'并已点击。请手动处理验证。处理完成后，请输入 'yes' 继续：").strip().lower()
+                if user_input == 'yes':
+                    break
+                else:
+                    print("输入不正确，请重新输入 'yes' 继续。")
+
+            print("✅ 用户已确认继续。")
+            time.sleep(5) # 等待页面加载
+            
+            final_screenshot_path = './face_verify_after_user_confirm.png'
+            print(f"📸 正在保存用户确认后的最终截图到: {final_screenshot_path}")
+            try:
+                page.get_screenshot(path=final_screenshot_path)
+                print("✅ 最终截图成功！")
+            except Exception as e:
+                print(f"❌ 最终截图失败: {e}")
+
+            return True
+
+        else:
+            print("❌ 未定位到 '刷脸验证' 元素，执行默认流程。")
+            time.sleep(5) # 等待5秒
+            default_final_screenshot_path = './no_face_verify_final_screenshot.png'
+            print(f"📸 正在保存未找到 '刷脸验证' 后的最终截图到: {default_final_screenshot_path}")
+            try:
+                page.get_screenshot(path=default_final_screenshot_path)
+                print("✅ 最终截图成功！")
+            except Exception as e:
+                print(f"❌ 最终截图失败: {e}")
+            return True # 即使没有刷脸验证，也算完成流程
 
     except Exception as e:
         print(f"❌ 测试过程中出错: {e}")
@@ -389,7 +450,7 @@ if __name__ == "__main__":
     success = test_douyin_page()
 
     if success:
-        print("\n🎉 抖音页面测试成功！登录截图已保存到 login_screenshot.png。")
+        print("\n🎉 抖音页面测试成功！相关截图已保存。")
         sys.exit(0)
     else:
         print("\n❌ 抖音页面测试失败，请检查错误信息。")
