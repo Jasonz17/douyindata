@@ -233,6 +233,15 @@ def test_douyin_page():
                     phone_number = input("请输入手机号: ")
                     phone_input.input(phone_number)
                     print("✅ 已输入手机号")
+                    
+                    # 输入手机号后截图
+                    phone_screenshot_path = './phone_screenshot.png'
+                    print(f"\n📸 正在保存手机号输入后的截图到: {phone_screenshot_path}")
+                    try:
+                        page.get_screenshot(path=phone_screenshot_path)
+                        print(f"✅ 手机号输入后截图成功！已保存到 {phone_screenshot_path}")
+                    except Exception as e:
+                        print(f"❌ 手机号输入后截图失败: {e}")
                 else:
                     print("❌ 未找到手机号输入框")
                     # 尝试截图记录当前页面状态
@@ -263,11 +272,38 @@ def test_douyin_page():
                 print(f"已保存调试截图到 {debug_screenshot_path}")
                 return False
 
-            # 点击获取验证码
-            verify_button = page.ele('xpath://span[text()="获取验证码"]')
-            if verify_button:
-                verify_button.click()
-                print("✅ 已点击获取验证码按钮")
+            # 等待一下，确保手机号输入完成后页面有响应
+        print("⏳ 等待页面响应...")
+        time.sleep(3)
+        
+        # 点击获取验证码
+        verify_button = page.ele('xpath://span[text()="获取验证码"]')
+        if verify_button:
+            # 截图记录点击验证码按钮前的状态
+            verify_before_screenshot_path = './verify_before_screenshot.png'
+            print(f"\n📸 正在保存点击验证码按钮前的截图到: {verify_before_screenshot_path}")
+            try:
+                page.get_screenshot(path=verify_before_screenshot_path)
+                print(f"✅ 验证码按钮点击前截图成功！已保存到 {verify_before_screenshot_path}")
+            except Exception as e:
+                print(f"❌ 验证码按钮点击前截图失败: {e}")
+                
+            # 点击验证码按钮
+            verify_button.click()
+            print("✅ 已点击获取验证码按钮")
+            
+            # 等待一下，确保验证码发送请求已经触发
+            print("⏳ 等待验证码发送...")
+            time.sleep(3)
+            
+            # 截图记录点击验证码按钮后的状态
+            verify_after_screenshot_path = './verify_after_screenshot.png'
+            print(f"\n📸 正在保存点击验证码按钮后的截图到: {verify_after_screenshot_path}")
+            try:
+                page.get_screenshot(path=verify_after_screenshot_path)
+                print(f"✅ 验证码按钮点击后截图成功！已保存到 {verify_after_screenshot_path}")
+            except Exception as e:
+                print(f"❌ 验证码按钮点击后截图失败: {e}")
             else:
                 print("❌ 未找到验证码按钮")
                 return False
