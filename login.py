@@ -132,10 +132,10 @@ def test_douyin_page():
         # 2. 创建浏览器实例
         print("\n🚀 创建浏览器实例...")
         options = create_chrome_options()
-        browser = Chromium(options)
+        page = ChromiumPage(options)
 
         # 获取页面对象
-        page = browser.latest_tab
+        # page = browser.latest_tab
 
         print("✅ 浏览器创建成功")
         
