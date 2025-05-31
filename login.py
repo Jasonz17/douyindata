@@ -86,7 +86,7 @@ def create_chrome_options():
     options.set_argument('--disable-gpu') # 因为没有物理GPU
     options.set_argument('--window-size=1920,1080') # 截图所需分辨率
     options.set_argument('--remote-debugging-port=9222') # 用于DrissionPage连接
-    options.set_argument('--accept-lang','zh-CN,zh;q=0.9,en;q=0.8')
+    options.set_argument('--accept-lang','zh-CN')
 
     # 其他一些有助于稳定性的参数
     options.set_argument('--no-first-run')
@@ -237,6 +237,7 @@ def test_douyin_page():
                 phone_number = input("请输入手机号: ")
                 phone_input.input(phone_number)
                 print("✅ 已输入手机号")
+                time.sleep(3)
             else:
                 print("❌ 未找到手机号输入框")
                 # 尝试截图记录当前页面状态
