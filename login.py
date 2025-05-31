@@ -138,16 +138,6 @@ def test_douyin_page():
         page = browser.latest_tab
 
         print("✅ 浏览器创建成功")
-        
-        # --- 新增步骤：检查 Accept-Language 头是否正确发送 ---
-        print("\n🔍 正在检查 Accept-Language 头是否发送正确...")
-        page.get('https://httpbin.org/headers')
-        time.sleep(3) # 等待页面加载，确保所有头信息都已显示
-        
-        headers_content = page.ele('tag:body').text
-        print("--- 浏览器发送的 HTTP 请求头 (来自 httpbin.org) ---")
-        print(headers_content)
-        print("-------------------------------------------------")
 
         # 3. 访问抖音页面
         douyin_url = 'https://v.douyin.com/IAqLrgefUPA/'
@@ -304,41 +294,41 @@ def test_douyin_page():
                 print(f"✅ 验证码按钮点击后截图成功！已保存到 {verify_after_screenshot_path}")
             except Exception as e:
                 print(f"❌ 验证码按钮点击后截图失败: {e}")
-            else:
-                print("❌ 未找到验证码按钮")
-                return False
+        else:
+            print("❌ 未找到验证码按钮")
+            return False
 
-            # 获取用户输入的验证码
-            verify_code = input("请输入收到的验证码: ")
-            verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
-            if verify_input:
-                verify_input.input(verify_code)
-                print("✅ 已输入验证码")
-            else:
-                print("❌ 未找到验证码输入框")
-                return False
+        # 获取用户输入的验证码
+        verify_code = input("请输入收到的验证码: ")
+        verify_input = page.ele('xpath://*[@placeholder="请输入验证码"]')
+        if verify_input:
+            verify_input.input(verify_code)
+            print("✅ 已输入验证码")
+        else:
+            print("❌ 未找到验证码输入框")
+            return False
 
-            # 点击登录按钮
-            login_button = page.ele('xpath://div[text()="登录/注册"]')
-            if login_button:
-                login_button.click()
-                print("✅ 已点击登录按钮")
-                # 等待登录完成
-                time.sleep(5)
-            else:
-                print("❌ 未找到登录按钮")
-                return False
+        # 点击登录按钮
+        login_button = page.ele('xpath://div[text()="登录/注册"]')
+        if login_button:
+            login_button.click()
+            print("✅ 已点击登录按钮")
+            # 等待登录完成
+            time.sleep(5)
+        else:
+            print("❌ 未找到登录按钮")
+            return False
 
-            # 登录后截图
-            login_screenshot_path = './login_screenshot.png'
-            print(f"\n📸 正在保存登录后截图到: {login_screenshot_path}")
-            try:
-                page.get_screenshot(path=login_screenshot_path)
-                print("✅ 登录后截图成功！")
-                return True
-            except Exception as e:
-                print(f"❌ 登录后截图失败: {e}")
-                return False
+        # 登录后截图
+        login_screenshot_path = './login_screenshot.png'
+        print(f"\n📸 正在保存登录后截图到: {login_screenshot_path}")
+        try:
+            page.get_screenshot(path=login_screenshot_path)
+            print("✅ 登录后截图成功！")
+            return True
+        except Exception as e:
+            print(f"❌ 登录后截图失败: {e}")
+            return False
         else:
             print(f"❌ 页面标题或URL异常，可能未成功加载抖音内容。")
             return False
